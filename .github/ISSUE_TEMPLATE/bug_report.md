@@ -1,7 +1,7 @@
 ---
 name: 버그 수정
 about: 버그 및 오류 수정
-title: "[Fix] "
+title: "[bug] "
 labels: bug
 assignees: ""
 ---
@@ -13,10 +13,6 @@ assignees: ""
 ## 원인
 
 -
-
-## 수정 내용
-
-- [ ]
 
 ## 참고 사항
 
