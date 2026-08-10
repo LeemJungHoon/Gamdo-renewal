@@ -48,9 +48,8 @@ export class GeminiRepositoryImpl implements GeminiRepository {
       };
 
       // Gemini API 호출
-      const geminiResponse = await this.geminiApi.generateContent(
-        geminiRequest
-      );
+      const geminiResponse =
+        await this.geminiApi.generateContent(geminiRequest);
 
       // 응답 유효성 검사
       if (
@@ -105,7 +104,7 @@ export class GeminiRepositoryImpl implements GeminiRepository {
         data: {
           text: generatedText,
           tokens_used: tokensUsed,
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
         },
         timestamp: new Date().toISOString(),
       };

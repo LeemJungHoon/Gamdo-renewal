@@ -33,7 +33,7 @@ export class GeminiApi {
   async generateContent(request: GeminiApiRequest): Promise<GeminiApiResponse> {
     try {
       // API 엔드포인트 URL 생성
-      const url = `${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+      const url = `${this.baseUrl}/models/gemini-3.6-flash:generateContent?key=${this.apiKey}`;
 
       // HTTP 요청 옵션 설정
       const options = {
@@ -51,7 +51,7 @@ export class GeminiApi {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Gemini API 호출 실패 (${response.status}): ${errorText}`
+          `Gemini API 호출 실패 (${response.status}): ${errorText}`,
         );
       }
 
@@ -63,7 +63,7 @@ export class GeminiApi {
       throw new Error(
         `Gemini API 호출 중 오류가 발생했습니다: ${
           error instanceof Error ? error.message : "알 수 없는 오류"
-        }`
+        }`,
       );
     }
   }
