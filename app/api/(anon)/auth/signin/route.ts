@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/utils/supabase/client";
+import { supabaseAdmin } from "@/utils/supabase/server";
 import { SigninUsecase } from "@/backend/application/signin/usecases/SigninUsecase";
 import {
   createAccessToken,
@@ -14,10 +14,10 @@ export async function POST(req: NextRequest) {
     if (!body) {
       return NextResponse.json(
         { error: "요청 데이터가 없습니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
-    const userRepository = new SbUserRepository(supabase);
+    const userRepository = new SbUserRepository(supabaseAdmin);
     const signinUseCase = new SigninUsecase(userRepository);
 
     const result = await signinUseCase.execute(body);
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (!result.user) {
       return NextResponse.json(
         { error: "아이디 또는 비밀번호가 일치하지 않습니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
