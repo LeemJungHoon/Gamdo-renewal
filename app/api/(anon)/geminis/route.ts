@@ -15,6 +15,7 @@ interface GeminiRequestBody {
   weather?: WeatherInfo;
   userSelection?: { [key: string]: string };
   previousMovieTitles?: string[]; // 이전 추천 영화 목록
+  retryMessage?: string;
 }
 
 /**
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     // 의존성 주입 (공통)
     const geminiRepository = new GeminiRepositoryImpl();
     const geminiUseCase = new GetGeminiMovieRecommendationUseCase(
-      geminiRepository
+      geminiRepository,
     );
 
     // 🎬 영화 추천 요청 처리 (클린 아키텍처)
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
             error: "날씨 정보가 필요합니다.",
             timestamp: new Date().toISOString(),
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
             error: "사용자 선택 정보가 필요합니다.",
             timestamp: new Date().toISOString(),
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         weather: body.weather,
         userSelection: body.userSelection,
         previousMovieTitles: body.previousMovieTitles || [], // 이전 추천 영화 목록
+        retryMessage: body.retryMessage,
         temperature: body.temperature || 0.7,
         max_tokens: body.max_tokens || 4096,
       });
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
           error: "프롬프트가 필요합니다.",
           timestamp: new Date().toISOString(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
         error: "Gemini 응답 생성 중 서버 오류가 발생했습니다.",
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest) {
     // 의존성 주입
     const geminiRepository = new GeminiRepositoryImpl();
     const geminiUseCase = new GetGeminiMovieRecommendationUseCase(
-      geminiRepository
+      geminiRepository,
     );
 
     let prompt: string;
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
             error: "올바른 타입을 지정해주세요. (temperature, weather)",
             timestamp: new Date().toISOString(),
           },
-          { status: 400 }
+          { status: 400 },
         );
     }
 
@@ -163,7 +165,7 @@ export async function GET(request: NextRequest) {
         error: "Gemini 응답 생성 중 서버 오류가 발생했습니다.",
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
