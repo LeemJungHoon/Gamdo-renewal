@@ -73,7 +73,7 @@ const TrendMovies: React.FC<TrendMoviesProps> = ({ onPosterClick }) => {
     <div className="mt-10">
       <div className="flex p-6 mb-6">
         <div className="flex-start text-3xl font-bold text-white">
-          최신 영화
+          운영자 추천 영화 리스트
         </div>
       </div>
 

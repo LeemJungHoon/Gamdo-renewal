@@ -1,9 +1,14 @@
 import { CertificationDto } from "@/backend/application/movies/dtos/MovieDetailDto";
 import axios from "axios";
+import https from "https";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
+const tmdbClient = axios.create({
+  timeout: 8000,
+  httpsAgent: new https.Agent({ family: 4 }),
+});
 
 if (!TMDB_API_KEY) {
   throw new Error("TMDB_API_KEY is not defined in environment variables");
@@ -32,7 +37,7 @@ export class TmdbImageUtils {
 export class TmdbApi {
   static async getMovieDetails(movieId: string): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/movie/${movieId}`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
         language: "ko-KR",
@@ -43,7 +48,7 @@ export class TmdbApi {
 
   static async getMovieCredits(movieId: string): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/movie/${movieId}/credits`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
         language: "ko-KR",
@@ -54,7 +59,7 @@ export class TmdbApi {
 
   static async getPersonCredits(personId: string): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/person/${personId}/combined_credits`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
         language: "ko-KR",
@@ -65,7 +70,7 @@ export class TmdbApi {
 
   static async getMovieWatchProviders(movieId: string): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/movie/${movieId}/watch/providers`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
       },
@@ -75,7 +80,7 @@ export class TmdbApi {
 
   static async getMovieReleaseDates(movieId: string): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/movie/${movieId}/release_dates`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
       },
@@ -86,10 +91,10 @@ export class TmdbApi {
   static async searchMulti(
     query: string,
     page: number = 1,
-    language: string = "ko-KR"
+    language: string = "ko-KR",
   ): Promise<CertificationDto> {
     const url = `${TMDB_BASE_URL}/search/multi`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
         language,
@@ -103,7 +108,7 @@ export class TmdbApi {
 
   static async getTrendingMovies(page: number = 1): Promise<unknown> {
     const url = `${TMDB_BASE_URL}/trending/movie/week`;
-    const response = await axios.get(url, {
+    const response = await tmdbClient.get(url, {
       params: {
         api_key: TMDB_API_KEY,
         language: "ko-KR", // 한국어로 영화 정보 가져오기

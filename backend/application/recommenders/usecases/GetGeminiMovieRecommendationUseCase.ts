@@ -25,14 +25,15 @@ export class GetGeminiMovieRecommendationUseCase {
    * @returns 영화 추천 응답 DTO
    */
   async execute(
-    request: GeminiMovieRecommendationRequestDto
+    request: GeminiMovieRecommendationRequestDto,
   ): Promise<GeminiMovieRecommendationResponseDto> {
     try {
       // 1. 비즈니스 로직: 프롬프트 생성
       const prompt = this.generateEnhancedMovieRecommendationPrompt(
         request.weather,
         request.userSelection,
-        request.previousMovieTitles || [] // 이전 영화 목록 전달
+        request.previousMovieTitles || [], // 이전 영화 목록 전달
+        request.retryMessage,
       );
 
       // 2. Gemini 응답 생성
@@ -81,7 +82,7 @@ export class GetGeminiMovieRecommendationUseCase {
    * @returns 기본 응답 DTO
    */
   async generateResponse(
-    request: GeminiRequestDto
+    request: GeminiRequestDto,
   ): Promise<GeminiResponseDto> {
     try {
       const result = await this.geminiRepository.generateText({
@@ -128,7 +129,8 @@ export class GetGeminiMovieRecommendationUseCase {
   private generateEnhancedMovieRecommendationPrompt(
     weather: WeatherInfo,
     userSelection: UserSelectionInfo,
-    previousMovieTitles: string[]
+    previousMovieTitles: string[],
+    retryMessage?: string,
   ): string {
     const temp = weather.currentTemp ? `${weather.currentTemp}°C` : "정보 없음";
     const humidity = weather.humidity ? `${weather.humidity}%` : "정보 없음";
@@ -158,17 +160,18 @@ export class GetGeminiMovieRecommendationUseCase {
         ? `이전에 추천받은 영화: ${previousMovieTitles.join(", ")}.\n`
         : "";
 
-    return `${previousMoviesText}현재 날씨 정보: 온도 ${temp}, 습도 ${humidity}, 체감온도 ${feelsLike}
-사용자 선호 정보: ${userPreferences}
+    const retryText = retryMessage ? `${retryMessage}\n` : "";
 
-위 정보를 바탕으로 최적의 영화 10개를 추천.
-- 날씨와 사용자의 모든 선호 정보를 종합적으로 고려.
-- 해리포터 시리즈와 같이 영화 시리즈라고 추천하지말고 딱 하나의 영화만 추천.
-- 이전에 추천받은 영화와 중복되지 않도록 다른 영화를 추천.
-- 추천 이유나 기타 부연설명은 넣지말고 다음과 같은 형태로만 응답.
-- 영화 제목은 기본은 한글, 괄호로 영어 제목으로 ex) 슈퍼맨(Superman) 이런식으로 추천.
+    return `${retryText}${previousMoviesText}Current weather information: temperature ${temp}, humidity ${humidity}, feels-like temperature ${feelsLike}
+  User preferences: ${userPreferences}
 
-[영화제목1, 영화제목2, 영화제목3, 영화제목4, 영화제목5, 영화제목6, 영화제목7, 영화제목8, 영화제목9, 영화제목10]`;
+  Recommend exactly 10 individual movies based on all of the information above.
+  - Recommend only movies released in 2012 or later.
+  - Do not recommend a movie series; recommend one individual movie per item.
+  - Do not recommend any movie from the previous list.
+  - Return only movie titles, with the Korean title followed by the English title in parentheses when possible.
+
+  [Movie title 1, Movie title 2, Movie title 3, Movie title 4, Movie title 5, Movie title 6, Movie title 7, Movie title 8, Movie title 9, Movie title 10]`;
   }
 
   /**
