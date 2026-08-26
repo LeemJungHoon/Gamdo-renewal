@@ -15,8 +15,7 @@ import LoadingPoster from "./components/LoadingPoster";
 import Button from "./components/Button";
 import TrendMovies from "./components/TrendMovies";
 import MovieDetailModal from "../movie-detail/components/MovieDetailModal";
-import { useState, useEffect } from "react";
-import Image from "next/image"; // next/image 추가
+import { useState, useEffect, useRef } from "react";
 import { getLocationWeatherData } from "../../../utils/supabase/recommenders/weather";
 import { ParsedWeatherInfo } from "../../../backend/domain/entities/recommenders/weather";
 import { AddressInfo } from "../../../utils/supabase/recommenders/geolocation";
@@ -70,7 +69,7 @@ const RecommenderPage = () => {
           toast.error(`"${movieTitle}" 영화 정보를 찾을 수 없습니다.`);
         }
       })
-      .catch((error) => {
+      .catch(() => {
         toast.error(
           "영화 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.",
         );
@@ -133,7 +132,7 @@ const RecommenderPage = () => {
         const result = await getLocationWeatherData();
         setWeatherData(result.weatherData);
         setAddressInfo(result.address);
-      } catch (error) {
+      } catch {
         // 재시도 횟수가 남아있으면 재시도
         if (retryCount < maxRetries) {
           setTimeout(() => {
@@ -263,79 +262,39 @@ const RecommenderPage = () => {
   const visiblePosters = getVisiblePosters();
 
   const getPosterInfos = async (titles: string[]) => {
-    const posters: { posterUrl: string; title: string; movieId?: number }[] =
-      [];
-
-    const isImageAvailable = (url: string) =>
-      new Promise<boolean>((resolve) => {
-        const image = new window.Image();
-        image.onload = () => resolve(true);
-        image.onerror = () => resolve(false);
-        image.src = url;
+    const tmdbStartedAt = performance.now();
+    console.log(`[추천 단계] TMDB 일괄 검색 시작 (${titles.length}개)`);
+    try {
+      const response = await fetch("/api/movies/search/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titles }),
       });
-
-    const posterResults = await Promise.all(
-      titles.slice(0, 10).map(async (title) => {
-        const tmdbStartedAt = performance.now();
-        console.log(`[추천 단계] TMDB 요청 시작: ${title}`);
-        try {
-          const response = await fetch(
-            `/api/movies/search?query=${encodeURIComponent(title)}&page=1`,
-          );
-          console.log(
-            `[추천 단계] TMDB 응답 완료: ${title} (${((performance.now() - tmdbStartedAt) / 1000).toFixed(2)}초)`,
-          );
-          if (!response.ok) return null;
-
-          const data = await response.json();
-          const movie = data.results?.find(
-            (item: {
-              media_type: string;
-              id: number;
-              poster_path?: string;
-              title?: string;
-              name?: string;
-            }) => item.media_type === "movie" && item.poster_path,
-          );
-
-          if (!movie?.poster_path) return null;
-
-          const posterUrl = `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
-          if (!(await isImageAvailable(posterUrl))) return null;
-
-          return {
-            posterUrl,
-            title: movie.title || movie.name || title,
-            movieId: movie.id,
-          };
-        } catch (error) {
-          return null;
-        }
-      }),
-    );
-
-    posters.push(
-      ...posterResults.filter(
-        (
-          poster,
-        ): poster is {
-          posterUrl: string;
-          title: string;
-          movieId: number;
-        } => poster !== null,
-      ),
-    );
-    return posters;
+      if (!response.ok) return [];
+      const data = await response.json();
+      console.log(
+        `[추천 단계] TMDB 일괄 검색 완료 (${((performance.now() - tmdbStartedAt) / 1000).toFixed(2)}초, ${data.results?.length ?? 0}개)`,
+      );
+      return (data.results ?? []) as {
+        posterUrl: string;
+        title: string;
+        movieId?: number;
+      }[];
+    } catch {
+      return [];
+    }
   };
 
   // AI 추천 요청 함수
   const handleRecommendation = async () => {
     let activeLoadingToast: string | number | null = null;
+    let geminiRetryOccurred = false;
+    let recommendationTimedOut = false;
 
     try {
       // 유효성 검사
       const errors = {
-        weather: !selectedWeather,
+        weather: !weatherData || !selectedWeather,
         emotion: selectedEmotion.length === 0,
         category: selectedCategory.length === 0,
         time: selectedTime.length === 0,
@@ -353,6 +312,11 @@ const RecommenderPage = () => {
       }
 
       const recommendationStartedAt = performance.now();
+      recommendationStartedAtRef.current = recommendationStartedAt;
+      loadedPosterUrlsRef.current.clear();
+      console.log("[추천 측정] 추천 버튼 클릭", {
+        at: new Date().toISOString(),
+      });
 
       // 유효성 검사 통과 시 모달 열기 및 spin 상태 변경
       setShowModal(true);
@@ -386,14 +350,32 @@ const RecommenderPage = () => {
       activeLoadingToast = loadingToast;
       setCurrentLoadingToast(loadingToast); // 로딩 토스트 ID 저장
 
+      recommendationTimedOutRef.current = false;
+      if (recommendationTimeoutRef.current) {
+        clearTimeout(recommendationTimeoutRef.current);
+      }
+      recommendationTimeoutRef.current = setTimeout(() => {
+        recommendationTimedOut = true;
+        recommendationTimedOutRef.current = true;
+        setSpin(false);
+        setShowModal(false);
+        toast.dismiss(loadingToast);
+        setCurrentLoadingToast(null);
+        toast.error(
+          "영화 추천중 오류가 발생했습니다. 새로고침후 다시 이용해 주세요",
+          {
+            position: "top-center",
+            autoClose: 3000,
+          },
+        );
+      }, 20000);
+
       const updateLoadingToast = (message: string) => {
         toast.update(loadingToast, {
           render: message,
           isLoading: true,
         });
       };
-
-      await new Promise((resolve) => window.setTimeout(resolve, 3000));
 
       // AI API 호출 전 요청 데이터 로깅
       const requestData = {
@@ -406,8 +388,8 @@ const RecommenderPage = () => {
           time: selectedTime,
         },
         previousMovieTitles: previousMovieTitles, // 이전 추천 영화 목록 전달
-        temperature: 0.7,
-        max_tokens: 4096,
+        temperature: 0.2,
+        max_tokens: 1024,
       };
 
       // AI API 호출
@@ -420,6 +402,17 @@ const RecommenderPage = () => {
         },
         body: JSON.stringify(requestData),
       });
+
+      if (recommendationTimedOutRef.current) {
+        throw new Error("RECOMMENDATION_TIMEOUT");
+      }
+
+      if (response.status === 429) {
+        const quotaData = await response.json();
+        if (quotaData.code === "GEMINI_QUOTA_EXCEEDED") {
+          throw new Error("GEMINI_QUOTA_EXCEEDED");
+        }
+      }
 
       console.log(
         `[추천 단계] Gemini 응답 완료 (요청 소요: ${((performance.now() - geminiStartedAt) / 1000).toFixed(2)}초, 전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
@@ -437,13 +430,58 @@ const RecommenderPage = () => {
 
       let recommendedTitles = data.data.movieTitles;
       updateLoadingToast("영화 추천 리스트를 뽑고 있어요!");
-      let posters = await getPosterInfos(recommendedTitles);
+      let posters = await getPosterInfos(recommendedTitles.slice(0, 6));
+      if (recommendationTimedOutRef.current) {
+        throw new Error("RECOMMENDATION_TIMEOUT");
+      }
       updateLoadingToast("영화 정보를 확인하고 있어요!");
 
-      if (posters.length < 4) {
+      const appendPostersInBackground = (titles: string[]) => {
+        if (titles.length === 0) return;
+        void getPosterInfos(titles).then((additionalPosters) => {
+          setPosterInfos((currentPosters) => [
+            ...currentPosters,
+            ...additionalPosters.filter(
+              (poster) =>
+                !currentPosters.some(
+                  (currentPoster) => currentPoster.movieId === poster.movieId,
+                ),
+            ),
+          ]);
+        });
+      };
+
+      if (posters.length >= 4) {
+        setPosterInfos(posters);
+        setPreviousMovieTitles(recommendedTitles);
+        setShowPosters(true);
+        appendPostersInBackground(recommendedTitles.slice(6));
+        console.log(
+          `[추천 단계] React 상태 반영 요청 (TMDB 완료 후 ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
+        );
+        console.log(
+          `[추천 측정] Gemini 재추천 발생 여부: ${geminiRetryOccurred}`,
+        );
+        updateLoadingToast("추천 영화를 화면에 표시중입니다!");
+        return;
+      }
+
+      if (posters.length < 4 && recommendedTitles.length > 6) {
+        const remainingPosters = await getPosterInfos(
+          recommendedTitles.slice(6),
+        );
+        if (recommendationTimedOutRef.current) {
+          throw new Error("RECOMMENDATION_TIMEOUT");
+        }
+        posters = [...posters, ...remainingPosters];
+      }
+
+      const allowRecommendationRetry = process.env.NODE_ENV !== "development";
+      if (posters.length < 4 && allowRecommendationRetry) {
         updateLoadingToast(
           "영화 추천 오류로 새로운 영화를 재추천 하고 있어요!",
         );
+        geminiRetryOccurred = true;
 
         console.log(
           `[추천 단계] Gemini 재추천 요청 시작 (전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
@@ -462,6 +500,10 @@ const RecommenderPage = () => {
           }),
         });
 
+        if (recommendationTimedOutRef.current) {
+          throw new Error("RECOMMENDATION_TIMEOUT");
+        }
+
         console.log(
           `[추천 단계] Gemini 재추천 응답 완료 (요청 소요: ${((performance.now() - retryStartedAt) / 1000).toFixed(2)}초, 전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
         );
@@ -477,7 +519,19 @@ const RecommenderPage = () => {
 
         recommendedTitles = retryData.data.movieTitles;
         updateLoadingToast("영화 정보를 확인하고 있어요!");
-        posters = await getPosterInfos(recommendedTitles);
+        posters = await getPosterInfos(recommendedTitles.slice(0, 6));
+        if (recommendationTimedOutRef.current) {
+          throw new Error("RECOMMENDATION_TIMEOUT");
+        }
+        if (posters.length < 4 && recommendedTitles.length > 6) {
+          posters = [
+            ...posters,
+            ...(await getPosterInfos(recommendedTitles.slice(6))),
+          ];
+          if (recommendationTimedOutRef.current) {
+            throw new Error("RECOMMENDATION_TIMEOUT");
+          }
+        }
       }
 
       if (posters.length < 4) {
@@ -488,8 +542,23 @@ const RecommenderPage = () => {
       setPosterInfos(posters);
       updateLoadingToast("추천 영화를 화면에 표시중입니다!");
       setShowPosters(true);
+      appendPostersInBackground(recommendedTitles.slice(6));
+      console.log(
+        `[추천 측정] Gemini 재추천 발생 여부: ${geminiRetryOccurred}`,
+      );
     } catch (error) {
+      if (recommendationTimeoutRef.current) {
+        clearTimeout(recommendationTimeoutRef.current);
+        recommendationTimeoutRef.current = null;
+      }
+      if (
+        recommendationTimedOut ||
+        (error instanceof Error && error.message === "RECOMMENDATION_TIMEOUT")
+      ) {
+        return;
+      }
       setSpin(false); // 에러 시에는 즉시 spin false
+      setShowModal(false);
 
       // 에러 시 기존 로딩 토스트 종료
       if (activeLoadingToast !== null) {
@@ -499,11 +568,15 @@ const RecommenderPage = () => {
 
       const isPosterRecommendationError =
         error instanceof Error && error.message === "TMDB_POSTER_ERROR";
+      const isGeminiQuotaError =
+        error instanceof Error && error.message === "GEMINI_QUOTA_EXCEEDED";
 
       toast.error(
-        isPosterRecommendationError
-          ? "오류로 인해 추천이 불가능한 상태입니다. 새로고침 해주세요"
-          : "❌ 추천 중 문제가 생겼습니다. 다시 눌러주세요!",
+        isGeminiQuotaError
+          ? "오늘 사용할 수 있는 AI 영화 추천 횟수를 모두 사용했습니다. 잠시 후 다시 시도해주세요."
+          : isPosterRecommendationError
+            ? "오류로 인해 추천이 불가능한 상태입니다. 새로고침 해주세요"
+            : "❌ 추천 중 문제가 생겼습니다. 다시 눌러주세요!",
         {
           position: "top-center",
           autoClose: 3000,
@@ -516,25 +589,56 @@ const RecommenderPage = () => {
   const [loadedCount, setLoadedCount] = useState(0);
   const [loadingPosters, setLoadingPosters] = useState<Set<number>>(new Set());
   const [loadedPosters, setLoadedPosters] = useState<Set<string>>(new Set());
+  const recommendationStartedAtRef = useRef<number | null>(null);
+  const loadedPosterUrlsRef = useRef<Set<string>>(new Set());
+  const recommendationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const recommendationTimedOutRef = useRef(false);
+
+  const handlePosterLoad = (index: number, posterUrl: string) => {
+    if (loadedPosterUrlsRef.current.has(posterUrl)) return;
+    loadedPosterUrlsRef.current.add(posterUrl);
+    setLoadedCount((count) => count + 1);
+    setPosterLoading(index, false);
+    setPosterLoaded(posterUrl);
+
+    const elapsed = recommendationStartedAtRef.current
+      ? (performance.now() - recommendationStartedAtRef.current) / 1000
+      : 0;
+    const loadedCount = loadedPosterUrlsRef.current.size;
+    console.log(
+      `[추천 측정] ${loadedCount === 1 ? "첫 번째" : loadedCount === 4 ? "네 번째" : `${loadedCount}번째`} 포스터 로딩 완료 (${elapsed.toFixed(2)}초)`,
+    );
+    if (loadedCount === 4) {
+      console.log(`[추천 측정] 전체 완료 시간: ${elapsed.toFixed(2)}초`);
+    }
+  };
+
+  const handlePosterError = (index: number, posterUrl: string) => {
+    setPosterLoading(index, false);
+    console.warn(`[추천 측정] 포스터 로딩 실패: ${posterUrl}`);
+  };
 
   // posterInfos가 바뀔 때마다 loadedCount 초기화 + 추천 결과가 0개면 spin false
   useEffect(() => {
-    setLoadedCount(0);
+    console.log(
+      `[추천 측정] React 상태 반영 완료 (${posterInfos.length}개, ${recommendationStartedAtRef.current ? ((performance.now() - recommendationStartedAtRef.current) / 1000).toFixed(2) : "0.00"}초)`,
+    );
     if (posterInfos.length === 0) {
       setSpin(false); // 추천 결과가 없을 때도 spin을 false로
     }
   }, [posterInfos]);
 
-  // 모든 포스터 이미지가 렌더링(onLoad)된 경우에만 spin을 false로 변경
+  // 첫 네 장이 실제로 로드되면 추천 UI를 완료 상태로 전환한다.
   useEffect(() => {
-    // 현재 화면에 보이는 포스터 4개가 모두 로드되면 spin false
-    const visiblePostersCount = Math.min(4, posterInfos.length);
-    if (
-      posterInfos.length > 0 &&
-      loadedCount >= visiblePostersCount &&
-      !hasScrolled
-    ) {
+    if (posterInfos.length >= 4 && loadedCount >= 4 && !hasScrolled) {
+      if (recommendationTimeoutRef.current) {
+        clearTimeout(recommendationTimeoutRef.current);
+        recommendationTimeoutRef.current = null;
+      }
       setSpin(false);
+      setShowModal(false);
       setHasScrolled(true); // 스크롤 실행 플래그 설정
 
       // 포스터 렌더링 완료 시 스크롤 실행 (한 번만)
@@ -554,19 +658,17 @@ const RecommenderPage = () => {
         }
       }, 500); // 포스터 렌더링 완료 후 0.5초 뒤 스크롤
 
-      // 포스터 렌더링 완료 시 기존 토스트를 완료 메시지로 업데이트 (지연)
+      // 네 장이 화면에 표시된 즉시 완료 토스트로 전환한다.
       if (currentLoadingToast) {
-        setTimeout(() => {
-          toast.update(currentLoadingToast, {
-            render: "완료되었어요!",
-            type: "success",
-            isLoading: false,
-            autoClose: 2500,
-            closeButton: true,
-            draggable: true,
-          });
-          setCurrentLoadingToast(null); // 토스트 ID 초기화
-        }, 500);
+        toast.update(currentLoadingToast, {
+          render: "추천 완료되었어요!",
+          type: "success",
+          isLoading: false,
+          autoClose: 2500,
+          closeButton: true,
+          draggable: true,
+        });
+        setCurrentLoadingToast(null);
       }
     }
   }, [loadedCount, posterInfos, currentLoadingToast, hasScrolled]);
@@ -750,7 +852,12 @@ const RecommenderPage = () => {
             </video>
             <div className="w-full h-full bg-black/8 absolute top-0 left-0" />
             {/* 날씨 왼쪽 섹션 */}
-            <div className="flex flex-col m-5 p-10 text-white rounded-xl relative bg-black/14 z-1 backdrop-blur-xs ">
+            <div
+              className="flex flex-col m-5 p-10 text-white rounded-xl relative bg-black/14 z-1 backdrop-blur-xs"
+              style={{
+                border: !weatherData ? "2px solid #ff4444" : "none",
+              }}
+            >
               <div className="absolute left-60 top-15">
                 {weatherData && getWeatherIcon(weatherData)}
               </div>
@@ -813,9 +920,10 @@ const RecommenderPage = () => {
               {/* 날씨 버튼 컴포넌트 ex)맑음, 흐림 ...*/}
               <div
                 style={{
-                  border: validationErrors.weather
-                    ? "2px solid #ff4444"
-                    : "none",
+                  border:
+                    validationErrors.weather && !!weatherData
+                      ? "2px solid #ff4444"
+                      : "none",
                 }}
                 className="flex min-h-40 justify-center items-center px-5 gap-2 rounded-xl flex-wrap overflow-hidden z-1 bg-black/10 backdrop-blur-xs border-white/20 border-1"
               >
@@ -943,7 +1051,7 @@ const RecommenderPage = () => {
           <button
             className={`text-xl half-border-spin ${
               spin ? " spin-active" : "hover:cursor-pointer"
-            } ${spin ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${spin || !weatherData ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={() => {
               handleRecommendation();
             }}
@@ -954,7 +1062,7 @@ const RecommenderPage = () => {
               border: "none",
               padding: 0,
             }}
-            disabled={spin}
+            disabled={spin || !weatherData}
           >
             <span
               style={{
@@ -1042,33 +1150,17 @@ const RecommenderPage = () => {
                     imageUrl={visiblePosters[0].posterUrl}
                     name={visiblePosters[0].title || "1"}
                     className="w-full h-full group-hover:scale-110 transition-transform duration-300"
+                    priority
+                    onLoad={() =>
+                      handlePosterLoad(0, visiblePosters[0].posterUrl)
+                    }
+                    onError={() =>
+                      handlePosterError(0, visiblePosters[0].posterUrl)
+                    }
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[0].movieId)
                     }
                   />
-                  {/* invisible next/image로 onLoad 감지 */}
-                  <div style={{ position: "relative", width: 0, height: 0 }}>
-                    <Image
-                      src={visiblePosters[0].posterUrl}
-                      alt=""
-                      fill
-                      style={{ display: "none" }}
-                      onLoad={() => {
-                        setLoadedCount((count) => count + 1);
-                        setPosterLoading(0, false);
-                        setPosterLoaded(visiblePosters[0].posterUrl);
-                      }}
-                      onError={() => {
-                        setPosterLoading(0, false);
-                        if (currentLoadingToast) {
-                          toast.dismiss(currentLoadingToast);
-                          setCurrentLoadingToast(null);
-                        }
-                      }}
-                      sizes="(max-width: 768px) 100vw, 308px"
-                      priority
-                    />
-                  </div>
                 </>
               )}
               <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/100 pointer-events-none transition-transform duration-300 group-hover:scale-110"></div>
@@ -1086,32 +1178,17 @@ const RecommenderPage = () => {
                     imageUrl={visiblePosters[1].posterUrl}
                     name={visiblePosters[1].title || "2"}
                     className="mr-1 max-w-full max-h-full object-contain"
+                    priority
+                    onLoad={() =>
+                      handlePosterLoad(1, visiblePosters[1].posterUrl)
+                    }
+                    onError={() =>
+                      handlePosterError(1, visiblePosters[1].posterUrl)
+                    }
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[1].movieId)
                     }
                   />
-                  <div style={{ position: "relative", width: 0, height: 0 }}>
-                    <Image
-                      src={visiblePosters[1].posterUrl}
-                      alt=""
-                      fill
-                      style={{ display: "none" }}
-                      onLoad={() => {
-                        setLoadedCount((count) => count + 1);
-                        setPosterLoading(1, false);
-                        setPosterLoaded(visiblePosters[1].posterUrl);
-                      }}
-                      onError={() => {
-                        setPosterLoading(1, false);
-                        if (currentLoadingToast) {
-                          toast.dismiss(currentLoadingToast);
-                          setCurrentLoadingToast(null);
-                        }
-                      }}
-                      sizes="(max-width: 768px) 100vw, 308px"
-                      priority
-                    />
-                  </div>
                 </>
               )}
               {/* 가운데 오른쪽 */}
@@ -1125,32 +1202,17 @@ const RecommenderPage = () => {
                     imageUrl={visiblePosters[2].posterUrl}
                     name={visiblePosters[2].title || "3"}
                     className="ml-1 max-w-full max-h-full object-contain"
+                    priority
+                    onLoad={() =>
+                      handlePosterLoad(2, visiblePosters[2].posterUrl)
+                    }
+                    onError={() =>
+                      handlePosterError(2, visiblePosters[2].posterUrl)
+                    }
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[2].movieId)
                     }
                   />
-                  <div style={{ position: "relative", width: 0, height: 0 }}>
-                    <Image
-                      src={visiblePosters[2].posterUrl}
-                      alt=""
-                      fill
-                      style={{ display: "none" }}
-                      onLoad={() => {
-                        setLoadedCount((count) => count + 1);
-                        setPosterLoading(2, false);
-                        setPosterLoaded(visiblePosters[2].posterUrl);
-                      }}
-                      onError={() => {
-                        setPosterLoading(2, false);
-                        if (currentLoadingToast) {
-                          toast.dismiss(currentLoadingToast);
-                          setCurrentLoadingToast(null);
-                        }
-                      }}
-                      sizes="(max-width: 768px) 100vw, 308px"
-                      priority
-                    />
-                  </div>
                 </>
               )}
             </div>
@@ -1166,32 +1228,17 @@ const RecommenderPage = () => {
                     imageUrl={visiblePosters[3].posterUrl}
                     name={visiblePosters[3].title || "4"}
                     className="w-full h-full transition-transform duration-300 group-hover:scale-110"
+                    priority
+                    onLoad={() =>
+                      handlePosterLoad(3, visiblePosters[3].posterUrl)
+                    }
+                    onError={() =>
+                      handlePosterError(3, visiblePosters[3].posterUrl)
+                    }
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[3].movieId)
                     }
                   />
-                  <div style={{ position: "relative", width: 0, height: 0 }}>
-                    <Image
-                      src={visiblePosters[3].posterUrl}
-                      alt=""
-                      fill
-                      style={{ display: "none" }}
-                      onLoad={() => {
-                        setLoadedCount((count) => count + 1);
-                        setPosterLoading(3, false);
-                        setPosterLoaded(visiblePosters[3].posterUrl);
-                      }}
-                      onError={() => {
-                        setPosterLoading(3, false);
-                        if (currentLoadingToast) {
-                          toast.dismiss(currentLoadingToast);
-                          setCurrentLoadingToast(null);
-                        }
-                      }}
-                      sizes="(max-width: 768px) 100vw, 308px"
-                      priority
-                    />
-                  </div>
                 </>
               )}
               <div className="absolute inset-0 bg-gradient-to-l from-black/100 via-transparent to-transparent pointer-events-none transition-transform duration-300 group-hover:scale-110"></div>

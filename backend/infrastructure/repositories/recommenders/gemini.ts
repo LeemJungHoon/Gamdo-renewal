@@ -42,14 +42,54 @@ export class GeminiRepositoryImpl implements GeminiRepository {
           },
         ],
         generationConfig: {
-          temperature: request.temperature || 0.7,
-          maxOutputTokens: request.max_tokens || 4096, // thinking 모드를 고려해서 대폭 증가
+          temperature:
+            request.temperature ?? (request.structuredOutput ? 0.2 : 0.7),
+          maxOutputTokens:
+            request.max_tokens ?? (request.structuredOutput ? 1024 : 1000),
+          ...(request.structuredOutput
+            ? {
+                responseMimeType: "application/json" as const,
+                responseSchema: {
+                  type: "OBJECT" as const,
+                  properties: {
+                    movies: {
+                      type: "ARRAY" as const,
+                      minItems: 10,
+                      maxItems: 10,
+                      items: {
+                        type: "OBJECT" as const,
+                        properties: {
+                          koreanTitle: { type: "STRING" as const },
+                          englishTitle: { type: "STRING" as const },
+                        },
+                        required: ["koreanTitle", "englishTitle"],
+                      },
+                    },
+                  },
+                  required: ["movies"],
+                },
+                thinkingConfig: { thinkingLevel: "MINIMAL" as const },
+              }
+            : {}),
         },
       };
 
       // Gemini API 호출
-      const geminiResponse =
-        await this.geminiApi.generateContent(geminiRequest);
+      const geminiStartedAt = performance.now();
+      let geminiResponse = await this.geminiApi.generateContent(geminiRequest);
+
+      this.logTokenUsage(geminiResponse, performance.now() - geminiStartedAt);
+
+      if (
+        geminiResponse.candidates?.[0]?.finishReason === "MAX_TOKENS" &&
+        request.structuredOutput &&
+        (request.max_tokens ?? 1024) < 1024
+      ) {
+        geminiRequest.generationConfig!.maxOutputTokens = 1024;
+        const retryStartedAt = performance.now();
+        geminiResponse = await this.geminiApi.generateContent(geminiRequest);
+        this.logTokenUsage(geminiResponse, performance.now() - retryStartedAt);
+      }
 
       // 응답 유효성 검사
       if (
@@ -67,10 +107,13 @@ export class GeminiRepositoryImpl implements GeminiRepository {
 
       // finishReason 확인 - thinking 모드에서 MAX_TOKENS로 잘릴 수 있음
       if (candidate.finishReason === "MAX_TOKENS") {
+        console.error("Gemini MAX_TOKENS 제한으로 추천 생성 실패", {
+          finishReason: candidate.finishReason,
+          ...this.getTokenUsage(geminiResponse),
+        });
         return {
           success: false,
-          error:
-            "Gemini 응답이 토큰 한계로 인해 잘렸습니다. 더 짧은 프롬프트를 사용해보세요.",
+          error: "Gemini 응답이 MAX_TOKENS 제한으로 잘렸습니다.",
           timestamp: new Date().toISOString(),
         };
       }
@@ -97,7 +140,7 @@ export class GeminiRepositoryImpl implements GeminiRepository {
       }
 
       // 응답 데이터 추출
-      const tokensUsed = geminiResponse.usageMetadata?.totalTokenCount || 0;
+      const tokensUsed = geminiResponse.usageMetadata?.totalTokenCount ?? 0;
 
       return {
         success: true,
@@ -118,5 +161,41 @@ export class GeminiRepositoryImpl implements GeminiRepository {
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  private getTokenUsage(response: {
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      thoughtsTokenCount?: number;
+      totalTokenCount?: number;
+    };
+    candidates?: { finishReason?: string }[];
+  }) {
+    return {
+      promptTokenCount: response.usageMetadata?.promptTokenCount ?? 0,
+      candidatesTokenCount: response.usageMetadata?.candidatesTokenCount ?? 0,
+      thoughtsTokenCount: response.usageMetadata?.thoughtsTokenCount ?? 0,
+      totalTokenCount: response.usageMetadata?.totalTokenCount ?? 0,
+    };
+  }
+
+  private logTokenUsage(
+    response: {
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+        totalTokenCount?: number;
+      };
+      candidates?: { finishReason?: string }[];
+    },
+    durationMs: number,
+  ) {
+    console.info("Gemini 토큰 사용량", {
+      durationMs: Math.round(durationMs),
+      finishReason: response.candidates?.[0]?.finishReason ?? "UNKNOWN",
+      ...this.getTokenUsage(response),
+    });
   }
 }

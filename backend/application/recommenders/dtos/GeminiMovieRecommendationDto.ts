@@ -49,6 +49,7 @@ export interface GeminiMovieRecommendationRequestDto {
  */
 export interface GeminiMovieRecommendationResponseDto {
   success: boolean;
+  code?: string;
   data?: {
     geminiResponse: string;
     movieTitles: string[];
@@ -80,4 +81,5 @@ export interface GeminiRequestDto {
   prompt: string;
   temperature?: number;
   max_tokens?: number;
+  structuredOutput?: boolean;
 }

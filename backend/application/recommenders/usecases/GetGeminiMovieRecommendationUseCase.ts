@@ -7,6 +7,7 @@ import {
   GeminiResponseDto,
   UserSelectionInfo,
 } from "../dtos/GeminiMovieRecommendationDto";
+import { GeminiMovie } from "../../../domain/entities/recommenders/gemini";
 
 /**
  * Gemini 영화 추천 UseCase
@@ -32,27 +33,33 @@ export class GetGeminiMovieRecommendationUseCase {
       const prompt = this.generateEnhancedMovieRecommendationPrompt(
         request.weather,
         request.userSelection,
-        request.previousMovieTitles || [], // 이전 영화 목록 전달
+        request.previousMovieTitles ?? [], // 이전 영화 목록 전달
         request.retryMessage,
       );
 
       // 2. Gemini 응답 생성
       const geminiResult = await this.generateResponse({
         prompt,
-        temperature: request.temperature || 0.7,
-        max_tokens: request.max_tokens || 4096,
+        temperature: request.temperature ?? 0.2,
+        max_tokens: request.max_tokens ?? 1024,
+        structuredOutput: true,
       });
 
       if (!geminiResult.success || !geminiResult.data?.text) {
         return {
           success: false,
-          error: geminiResult.error || "Gemini 응답을 받을 수 없습니다.",
+          error: geminiResult.error ?? "Gemini 응답을 받을 수 없습니다.",
           timestamp: new Date().toISOString(),
         };
       }
 
       // 3. 비즈니스 로직: 영화 제목 추출
-      const movieTitles = this.extractMovieTitles(geminiResult.data.text);
+      const movies = this.parseStructuredMovies(geminiResult.data.text);
+      const movieTitles = movies.length
+        ? movies.map(({ koreanTitle, englishTitle }) =>
+            englishTitle ? `${koreanTitle}(${englishTitle})` : koreanTitle,
+          )
+        : this.extractMovieTitles(geminiResult.data.text);
 
       return {
         success: true,
@@ -87,8 +94,9 @@ export class GetGeminiMovieRecommendationUseCase {
     try {
       const result = await this.geminiRepository.generateText({
         prompt: request.prompt,
-        temperature: request.temperature || 0.7,
-        max_tokens: request.max_tokens || 1000,
+        temperature: request.temperature ?? 0.7,
+        max_tokens: request.max_tokens ?? 1000,
+        structuredOutput: request.structuredOutput,
       });
 
       if (result.success && result.data) {
@@ -165,13 +173,40 @@ export class GetGeminiMovieRecommendationUseCase {
     return `${retryText}${previousMoviesText}Current weather information: temperature ${temp}, humidity ${humidity}, feels-like temperature ${feelsLike}
   User preferences: ${userPreferences}
 
-  Recommend exactly 10 individual movies based on all of the information above.
+  Return exactly 10 individual movies in the JSON shape required by the API based on all of the information above.
   - Recommend only movies released in 2012 or later.
   - Do not recommend a movie series; recommend one individual movie per item.
   - Do not recommend any movie from the previous list.
-  - Return only movie titles, with the Korean title followed by the English title in parentheses when possible.
+  - For every movie, provide both koreanTitle and englishTitle.
+  - Return exactly 10 items in the movies array and no additional fields.`;
+  }
 
-  [Movie title 1, Movie title 2, Movie title 3, Movie title 4, Movie title 5, Movie title 6, Movie title 7, Movie title 8, Movie title 9, Movie title 10]`;
+  private parseStructuredMovies(aiResponse: string): GeminiMovie[] {
+    try {
+      const parsed: unknown = JSON.parse(aiResponse);
+      if (!parsed || typeof parsed !== "object" || !("movies" in parsed)) {
+        return [];
+      }
+
+      const movies = (parsed as { movies?: unknown }).movies;
+      if (!Array.isArray(movies) || movies.length !== 10) return [];
+
+      return movies
+        .filter(
+          (movie): movie is GeminiMovie =>
+            !!movie &&
+            typeof movie === "object" &&
+            typeof (movie as GeminiMovie).koreanTitle === "string" &&
+            typeof (movie as GeminiMovie).englishTitle === "string",
+        )
+        .map((movie) => ({
+          koreanTitle: movie.koreanTitle.trim(),
+          englishTitle: movie.englishTitle.trim(),
+        }))
+        .filter((movie) => movie.koreanTitle.length > 0);
+    } catch {
+      return [];
+    }
   }
 
   /**

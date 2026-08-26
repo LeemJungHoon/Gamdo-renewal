@@ -5,6 +5,9 @@ interface ClickablePosterCardProps {
   name: string;
   className?: string;
   onClick: () => void;
+  priority?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 /**
@@ -16,10 +19,20 @@ export default function ClickablePosterCard({
   name,
   className,
   onClick,
+  priority,
+  onLoad,
+  onError,
 }: ClickablePosterCardProps) {
   return (
     <div onClick={onClick} className="cursor-pointer w-full h-full">
-      <PosterCard imageUrl={imageUrl} name={name} className={className} />
+      <PosterCard
+        imageUrl={imageUrl}
+        name={name}
+        className={className}
+        priority={priority}
+        onLoad={onLoad}
+        onError={onError}
+      />
     </div>
   );
 }
