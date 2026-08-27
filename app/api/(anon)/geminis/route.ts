@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetGeminiMovieRecommendationUseCase } from "../../../../backend/application/recommenders/usecases/GetGeminiMovieRecommendationUseCase";
 import { GeminiRepositoryImpl } from "../../../../backend/infrastructure/repositories/recommenders/gemini";
 import { WeatherInfo } from "../../../../backend/domain/entities/recommenders/weather";
-import { MemoryCache } from "../../../../backend/common/cache/MemoryCache";
 import { GeminiMovieRecommendationResponseDto } from "../../../../backend/application/recommenders/dtos/GeminiMovieRecommendationDto";
 
-const recommendationCache =
-  new MemoryCache<GeminiMovieRecommendationResponseDto>(10);
 const QUOTA_ERROR_CODE = "GEMINI_QUOTA_EXCEEDED";
 const QUOTA_ERROR_MESSAGE =
   "오늘 사용할 수 있는 AI 영화 추천 횟수를 모두 사용했습니다. 잠시 후 다시 시도해주세요.";
@@ -83,15 +80,6 @@ export async function POST(request: NextRequest) {
       }
 
       // 🏗️ 백엔드 UseCase 호출 (모든 비즈니스 로직은 UseCase에서 처리)
-      const cacheKey = JSON.stringify({
-        weather: body.weather,
-        userSelection: body.userSelection,
-        previousMovieTitles: body.previousMovieTitles ?? [],
-        retryMessage: body.retryMessage ?? null,
-      });
-      const cachedResult = recommendationCache.get(cacheKey);
-      if (cachedResult) return NextResponse.json(cachedResult);
-
       if (process.env.USE_GEMINI_MOCK === "true") {
         const mockResult: GeminiMovieRecommendationResponseDto = {
           success: true,
@@ -110,7 +98,6 @@ export async function POST(request: NextRequest) {
           },
           timestamp: new Date().toISOString(),
         };
-        recommendationCache.set(cacheKey, mockResult);
         return NextResponse.json(mockResult);
       }
 
@@ -134,7 +121,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (result.success) recommendationCache.set(cacheKey, result);
       const statusCode = result.success
         ? 200
         : result.error?.includes("MAX_TOKENS")
