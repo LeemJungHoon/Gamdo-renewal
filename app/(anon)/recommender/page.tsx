@@ -29,6 +29,30 @@ const trailerUrls = [
   "https://www.youtube.com/embed/j9uJFN6WMbc?autoplay=1&mute=1",
 ];
 
+const DEFAULT_WEATHER_DATA: ParsedWeatherInfo = {
+  skyCondition: "맑음",
+  precipitationType: "없음",
+  weatherDescription: "맑음",
+  currentTemp: 22,
+  maxTemp: 25,
+  minTemp: 18,
+  feelsLikeTemp: 22,
+  humidity: 45,
+  precipitation: "0mm",
+  windSpeed: 1.5,
+  forecastTime: "1200",
+  location: {
+    nx: 60,
+    ny: 127,
+  },
+};
+
+const DEFAULT_ADDRESS_INFO: AddressInfo = {
+  city: "위치 정보",
+  district: "미사용",
+  fullAddress: "위치 정보를 사용하지 않은 기본 날씨",
+};
+
 const RecommenderPage = () => {
   const [spin, setSpin] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -38,6 +62,7 @@ const RecommenderPage = () => {
     null,
   );
   const [addressInfo, setAddressInfo] = useState<AddressInfo | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
   // 선택된 버튼들을 관리하는 state
   const [selectedWeather, setSelectedWeather] = useState<string>(""); // 날씨는 단일 선택
@@ -122,28 +147,43 @@ const RecommenderPage = () => {
     }
   };
 
-  // 페이지 렌더링 시 위치 정보와 날씨 정보 자동 가져오기 (재시도 로직 포함)
+  // 페이지 렌더링 시 위치 정보와 날씨 정보 자동 가져오기
   useEffect(() => {
-    const getLocationAndWeather = async (retryCount = 0) => {
-      const maxRetries = 3; // 최대 3번 재시도
-      const retryDelay = 2000; // 2초 후 재시도
+    let isMounted = true;
+    let requestSettled = false;
+    const timeoutId = setTimeout(() => {
+      if (!isMounted || requestSettled) return;
+      requestSettled = true;
+      setWeatherData(DEFAULT_WEATHER_DATA);
+      setAddressInfo(DEFAULT_ADDRESS_INFO);
+      setIsWeatherLoading(false);
+    }, 7000);
 
+    const getLocationAndWeather = async () => {
       try {
         const result = await getLocationWeatherData();
+        if (!isMounted || requestSettled) return;
+        requestSettled = true;
+        clearTimeout(timeoutId);
         setWeatherData(result.weatherData);
         setAddressInfo(result.address);
       } catch {
-        // 재시도 횟수가 남아있으면 재시도
-        if (retryCount < maxRetries) {
-          setTimeout(() => {
-            getLocationAndWeather(retryCount + 1);
-          }, retryDelay);
-        } else {
-        }
+        if (!isMounted || requestSettled) return;
+        requestSettled = true;
+        clearTimeout(timeoutId);
+        setWeatherData(DEFAULT_WEATHER_DATA);
+        setAddressInfo(DEFAULT_ADDRESS_INFO);
       }
+      if (isMounted && requestSettled) setIsWeatherLoading(false);
     };
 
     getLocationAndWeather();
+
+    return () => {
+      isMounted = false;
+      requestSettled = true;
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const [posterInfos, setPosterInfos] = useState<
@@ -852,12 +892,7 @@ const RecommenderPage = () => {
             </video>
             <div className="w-full h-full bg-black/8 absolute top-0 left-0" />
             {/* 날씨 왼쪽 섹션 */}
-            <div
-              className="flex flex-col m-5 p-10 text-white rounded-xl relative bg-black/14 z-1 backdrop-blur-xs"
-              style={{
-                border: !weatherData ? "2px solid #ff4444" : "none",
-              }}
-            >
+            <div className="flex flex-col m-5 p-10 text-white rounded-xl relative bg-black/14 z-1 backdrop-blur-xs">
               <div className="absolute left-60 top-15">
                 {weatherData && getWeatherIcon(weatherData)}
               </div>
@@ -1051,7 +1086,7 @@ const RecommenderPage = () => {
           <button
             className={`text-xl half-border-spin ${
               spin ? " spin-active" : "hover:cursor-pointer"
-            } ${spin || !weatherData ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${spin || isWeatherLoading ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={() => {
               handleRecommendation();
             }}
@@ -1062,7 +1097,7 @@ const RecommenderPage = () => {
               border: "none",
               padding: 0,
             }}
-            disabled={spin || !weatherData}
+            disabled={spin || isWeatherLoading}
           >
             <span
               style={{
@@ -1072,7 +1107,11 @@ const RecommenderPage = () => {
                 alignItems: "center",
               }}
             >
-              {spin ? "ㅤ추천 중 .." : "ㅤ추천 시작"}
+              {spin
+                ? "ㅤ추천 중 .."
+                : isWeatherLoading
+                  ? "ㅤ로딩중..."
+                  : "ㅤ추천 시작"}
               <WiStars
                 style={{ color: "#56EBE1" }}
                 size={28}
