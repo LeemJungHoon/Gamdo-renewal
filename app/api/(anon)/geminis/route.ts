@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetGeminiMovieRecommendationUseCase } from "../../../../backend/application/recommenders/usecases/GetGeminiMovieRecommendationUseCase";
 import { GeminiRepositoryImpl } from "../../../../backend/infrastructure/repositories/recommenders/gemini";
 import { WeatherInfo } from "../../../../backend/domain/entities/recommenders/weather";
+import { GeminiMovieRecommendationResponseDto } from "../../../../backend/application/recommenders/dtos/GeminiMovieRecommendationDto";
+
+const QUOTA_ERROR_CODE = "GEMINI_QUOTA_EXCEEDED";
+const QUOTA_ERROR_MESSAGE =
+  "오늘 사용할 수 있는 AI 영화 추천 횟수를 모두 사용했습니다. 잠시 후 다시 시도해주세요.";
+const mockMovieTitles = [
+  "인터스텔라(Interstellar)",
+  "컨택트(Arrival)",
+  "듄(Dune)",
+  "블레이드 러너 2049(Blade Runner 2049)",
+  "엑스 마키나(Ex Machina)",
+  "마션(The Martian)",
+  "매트릭스(The Matrix)",
+  "그래비티(Gravity)",
+  "프리 가이(Free Guy)",
+  "에브리씽 에브리웨어 올 앳 원스(Everything Everywhere All at Once)",
+];
 
 // Gemini 응답 요청 인터페이스 (클린 아키텍처 준수)
 interface GeminiRequestBody {
@@ -63,16 +80,52 @@ export async function POST(request: NextRequest) {
       }
 
       // 🏗️ 백엔드 UseCase 호출 (모든 비즈니스 로직은 UseCase에서 처리)
+      if (process.env.USE_GEMINI_MOCK === "true") {
+        const mockResult: GeminiMovieRecommendationResponseDto = {
+          success: true,
+          data: {
+            geminiResponse: JSON.stringify({
+              movies: mockMovieTitles.map((title) => {
+                const [koreanTitle, englishTitle = ""] = title.split("(");
+                return {
+                  koreanTitle,
+                  englishTitle: englishTitle.replace(/\)$/, ""),
+                };
+              }),
+            }),
+            movieTitles: mockMovieTitles,
+            model: "gemini-mock",
+          },
+          timestamp: new Date().toISOString(),
+        };
+        return NextResponse.json(mockResult);
+      }
+
       const result = await geminiUseCase.execute({
         weather: body.weather,
         userSelection: body.userSelection,
-        previousMovieTitles: body.previousMovieTitles || [], // 이전 추천 영화 목록
+        previousMovieTitles: body.previousMovieTitles ?? [], // 이전 추천 영화 목록
         retryMessage: body.retryMessage,
-        temperature: body.temperature || 0.7,
-        max_tokens: body.max_tokens || 4096,
+        temperature: body.temperature ?? 0.2,
+        max_tokens: body.max_tokens ?? 512,
       });
 
-      const statusCode = result.success ? 200 : 500;
+      if (!result.success && result.error?.includes("429")) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: QUOTA_ERROR_CODE,
+            error: QUOTA_ERROR_MESSAGE,
+          },
+          { status: 429 },
+        );
+      }
+
+      const statusCode = result.success
+        ? 200
+        : result.error?.includes("MAX_TOKENS")
+          ? 422
+          : 500;
       return NextResponse.json(result, { status: statusCode });
     }
 

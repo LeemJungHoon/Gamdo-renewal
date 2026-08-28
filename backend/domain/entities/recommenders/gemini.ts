@@ -3,6 +3,12 @@ export interface GeminiRequest {
   prompt: string; // 사용자 프롬프트
   temperature?: number; // 생성 온도 (0.0 ~ 1.0)
   max_tokens?: number; // 최대 토큰 수
+  structuredOutput?: boolean;
+}
+
+export interface GeminiMovie {
+  koreanTitle: string;
+  englishTitle: string;
 }
 
 // Gemini 응답 인터페이스
@@ -54,6 +60,29 @@ export interface GeminiApiRequest {
   generationConfig?: {
     temperature?: number;
     maxOutputTokens?: number;
+    responseMimeType?: "application/json";
+    responseSchema?: {
+      type: "OBJECT";
+      properties: {
+        movies: {
+          type: "ARRAY";
+          minItems: number;
+          maxItems: number;
+          items: {
+            type: "OBJECT";
+            properties: {
+              koreanTitle: { type: "STRING" };
+              englishTitle: { type: "STRING" };
+            };
+            required: string[];
+          };
+        };
+      };
+      required: string[];
+    };
+    thinkingConfig?: {
+      thinkingLevel: "MINIMAL";
+    };
   };
 }
 

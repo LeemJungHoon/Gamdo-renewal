@@ -5,6 +5,9 @@ interface PosterCardProps {
   imageUrl: string;
   name: string;
   className?: string;
+  priority?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 /**
@@ -18,12 +21,15 @@ export default function PosterCard({
   imageUrl,
   name,
   className,
+  priority = false,
+  onLoad,
+  onError,
 }: PosterCardProps) {
   return (
     <div
       className={twMerge(
         "relative overflow-hidden rounded-[20px] transition-transform duration-300 group cursor-pointer hover:scale-110 aspect-[308/457] bg-slate-800",
-        className
+        className,
       )}
     >
       <Image
@@ -32,6 +38,9 @@ export default function PosterCard({
         fill
         className="object-cover"
         sizes="(max-width: 768px) 100vw, 308px"
+        priority={priority}
+        onLoad={onLoad}
+        onError={onError}
       />
       <div className="absolute inset-0 bg-black/60 flex items-end justify-start opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <span className="text-white text-lg font-bold px-4 py-6">{name}</span>
