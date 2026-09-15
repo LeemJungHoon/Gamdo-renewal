@@ -23,26 +23,28 @@ export default function MovieHeaderCalendar({
 
   // 캘린더가 열릴 때 해당 영화의 저장된 날짜 가져오기
   useEffect(() => {
-    if (isOpen && movieId) {
-      fetchSavedDate(movieId);
-    }
-  }, [isOpen, movieId]);
+    const fetchSavedDate = async () => {
+      if (!isOpen || !movieId) return;
 
-  const fetchSavedDate = async (movieId: string) => {
-    try {
-      const response = await axios.get(`/movies/calenders?movieId=${movieId}`);
+      try {
+        const response = await axios.get(
+          `/movies/calenders?movieId=${movieId}`,
+        );
 
-      // 저장된 날짜가 있으면 해당 날짜를 설정
-      if (response.data && response.data.length > 0) {
-        const savedDateObj = new Date(response.data[0].date);
-        onSavedDateChange?.(savedDateObj);
-      } else {
+        // 저장된 날짜가 있으면 해당 날짜를 설정
+        if (response.data && response.data.length > 0) {
+          const savedDateObj = new Date(response.data[0].date);
+          onSavedDateChange?.(savedDateObj);
+        } else {
+          onSavedDateChange?.(undefined);
+        }
+      } catch {
         onSavedDateChange?.(undefined);
       }
-    } catch {
-      onSavedDateChange?.(undefined);
-    }
-  };
+    };
+
+    fetchSavedDate();
+  }, [isOpen, movieId, onSavedDateChange]);
 
   const handleDateChange = async (date: Date | undefined) => {
     if (date) {
@@ -107,6 +109,7 @@ export default function MovieHeaderCalendar({
     <div className="absolute top-14 right-0 z-1 mt-2">
       <DayPicker
         mode="single"
+        animate={false}
         selected={savedDate}
         onSelect={handleDateChange}
         modifiers={{

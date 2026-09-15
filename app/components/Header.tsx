@@ -41,7 +41,7 @@ export default function Header() {
               alt="로고"
               width={150}
               height={40}
-              className="mr-10"
+              className="mr-10 w-auto h-auto"
             />
           </Link>
           <nav className="flex-1 flex justify-center gap-8 text-md text-gray-200 font-light">
