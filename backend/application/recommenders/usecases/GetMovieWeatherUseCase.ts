@@ -30,25 +30,14 @@ export class GetMovieWeatherUseCase {
    * @returns 파싱된 날씨 정보 응답 DTO
    */
   async execute(
-    request: GetMovieWeatherRequestDto
+    request: GetMovieWeatherRequestDto,
   ): Promise<GetMovieWeatherResponseDto> {
     try {
-      console.log("🌤️ 날씨 UseCase 실행 시작:", {
-        request,
-        timestamp: new Date().toISOString(),
-      });
-
       // 원시 날씨 데이터 조회
       const rawWeatherResponse = await this.getCurrentWeather(
         request.nx,
-        request.ny
+        request.ny,
       );
-
-      console.log("🌤️ 원시 날씨 데이터 조회 결과:", {
-        success: rawWeatherResponse.success,
-        hasData: !!rawWeatherResponse.data,
-        error: rawWeatherResponse.error,
-      });
 
       if (!rawWeatherResponse.success || !rawWeatherResponse.data) {
         return {
@@ -61,12 +50,6 @@ export class GetMovieWeatherUseCase {
       // 날씨 데이터 파싱
       const parsedResponse = this.parseWeatherData(rawWeatherResponse.data);
 
-      console.log("🌤️ 날씨 데이터 파싱 결과:", {
-        success: parsedResponse.success,
-        hasData: !!parsedResponse.data,
-        error: parsedResponse.error,
-      });
-
       if (!parsedResponse.success || !parsedResponse.data) {
         return {
           success: false,
@@ -74,11 +57,6 @@ export class GetMovieWeatherUseCase {
           timestamp: new Date().toISOString(),
         };
       }
-
-      console.log("✅ 날씨 UseCase 실행 성공:", {
-        weatherInfo: parsedResponse.data,
-        timestamp: new Date().toISOString(),
-      });
 
       return {
         success: true,
@@ -90,11 +68,6 @@ export class GetMovieWeatherUseCase {
         error instanceof Error
           ? error.message
           : "날씨 정보 처리 중 오류가 발생했습니다.";
-
-      console.error("❌ 날씨 UseCase 실행 오류:", {
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-      });
 
       return {
         success: false,
@@ -110,7 +83,7 @@ export class GetMovieWeatherUseCase {
    * @returns 날씨 API 응답 DTO
    */
   async getWeatherApiResponse(
-    request: GetMovieWeatherRequestDto
+    request: GetMovieWeatherRequestDto,
   ): Promise<WeatherApiResponseDto> {
     const result = await this.execute(request);
 
@@ -131,16 +104,15 @@ export class GetMovieWeatherUseCase {
    */
   private async getCurrentWeather(
     nx: number,
-    ny: number
+    ny: number,
   ): Promise<WeatherResponse> {
     try {
       // 현재 날짜와 시간 계산
       const weatherRequest = this.createWeatherRequest(nx, ny);
 
       // 리포지토리를 통해 날씨 데이터 조회
-      const result = await this.weatherRepository.getWeatherData(
-        weatherRequest
-      );
+      const result =
+        await this.weatherRepository.getWeatherData(weatherRequest);
 
       return result;
     } catch (error) {
@@ -163,19 +135,8 @@ export class GetMovieWeatherUseCase {
   private createWeatherRequest(nx: number, ny: number): WeatherRequest {
     const now = new Date();
 
-    console.log("🌤️ 현재 시간:", {
-      now: now.toISOString(),
-      localTime: now.toLocaleString("ko-KR"),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    });
-
     // 현재 시간에서 1시간 전 시간 계산 (기상청 API 지연 고려)
     const targetTime = new Date(now.getTime() - 60 * 60 * 1000);
-
-    console.log("🌤️ 목표 시간 (1시간 전):", {
-      targetTime: targetTime.toISOString(),
-      localTime: targetTime.toLocaleString("ko-KR"),
-    });
 
     // 기상청 API 날짜 형식으로 변환 (YYYYMMDD)
     const year = targetTime.getFullYear();
@@ -185,16 +146,6 @@ export class GetMovieWeatherUseCase {
 
     // 정시 기준으로 가장 가까운 시간 계산 (기상청 API는 정시 데이터만 제공)
     const baseTime = this.calculateBaseTime(targetTime);
-
-    console.log("🌤️ 계산된 기준 시간:", {
-      baseDate,
-      baseTime,
-      year,
-      month,
-      day,
-      targetHour: targetTime.getHours(),
-      targetMinute: targetTime.getMinutes(),
-    });
 
     return {
       baseDate,
@@ -221,14 +172,6 @@ export class GetMovieWeatherUseCase {
       .toString()
       .padStart(2, "0")}`;
 
-    console.log("🌤️ 기준 시간 계산:", {
-      originalHour: hour,
-      originalMinute: targetTime.getMinutes(),
-      baseHour,
-      baseMinute,
-      baseTime,
-    });
-
     return baseTime;
   }
 
@@ -239,18 +182,7 @@ export class GetMovieWeatherUseCase {
    */
   private parseWeatherData(weatherData: WeatherData): ParsedWeatherResponse {
     try {
-      console.log("🌤️ 날씨 데이터 파싱 시작:", {
-        hasResponse: !!weatherData.response,
-        hasBody: !!weatherData.response?.body,
-        hasItems: !!weatherData.response?.body?.items,
-        timestamp: new Date().toISOString(),
-      });
-
       if (!weatherData.response?.body?.items?.item) {
-        console.error("❌ 날씨 데이터 구조 오류:", {
-          weatherData,
-          message: "날씨 데이터 구조가 올바르지 않습니다.",
-        });
         return {
           success: false,
           error: "날씨 데이터 구조가 올바르지 않습니다.",
@@ -260,18 +192,8 @@ export class GetMovieWeatherUseCase {
 
       const items = weatherData.response.body.items.item;
 
-      console.log("🌤️ 날씨 아이템 정보:", {
-        itemCount: items.length,
-        firstItem: items[0],
-        categories: items.map((item) => item.category),
-      });
-
       // 첫 번째 아이템이 없으면 오류
       if (!items || items.length === 0) {
-        console.error("❌ 날씨 데이터 비어있음:", {
-          items,
-          message: "날씨 데이터가 비어있습니다.",
-        });
         return {
           success: false,
           error: "날씨 데이터가 비어있습니다.",
@@ -283,23 +205,11 @@ export class GetMovieWeatherUseCase {
       const weatherMap = this.categorizeWeatherData(items);
       const firstItem = items[0];
 
-      console.log("🌤️ 카테고리별 날씨 데이터:", {
-        weatherMapSize: weatherMap.size,
-        categories: Array.from(weatherMap.keys()),
-        weatherMapEntries: Object.fromEntries(weatherMap),
-        firstItem,
-      });
-
       // 파싱된 날씨 정보 생성
       const parsedWeatherInfo = this.createParsedWeatherInfo(
         weatherMap,
-        firstItem
+        firstItem,
       );
-
-      console.log("✅ 날씨 정보 파싱 완료:", {
-        parsedWeatherInfo,
-        timestamp: new Date().toISOString(),
-      });
 
       return {
         success: true,
@@ -311,12 +221,6 @@ export class GetMovieWeatherUseCase {
         error instanceof Error
           ? error.message
           : "날씨 데이터 파싱 중 오류가 발생했습니다.";
-
-      console.error("❌ 날씨 데이터 파싱 오류:", {
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-        weatherData,
-      });
 
       return {
         success: false,
@@ -334,37 +238,13 @@ export class GetMovieWeatherUseCase {
   private categorizeWeatherData(items: WeatherItem[]): Map<string, string> {
     const weatherMap = new Map<string, string>();
 
-    console.log("🌤️ 날씨 데이터 분류 시작:", {
-      totalItems: items.length,
-      itemsPreview: items.slice(0, 3),
-    });
-
-    items.forEach((item, index) => {
-      console.log(`🌤️ 아이템 ${index} 처리:`, {
-        category: item.category,
-        obsrValue: item.obsrValue,
-        fcstValue: item.fcstValue,
-        hasObsrValue: !!item.obsrValue,
-        hasFcstValue: !!item.fcstValue,
-      });
-
+    items.forEach((item) => {
       // 기상청 실황 API는 obsrValue를 사용 (예보 API는 fcstValue 사용)
       const value = item.obsrValue || item.fcstValue;
 
       if (item.category && value) {
         weatherMap.set(item.category, value);
-        console.log(`✅ 카테고리 추가: ${item.category} = ${value}`);
-      } else {
-        console.log(
-          `⚠️ 카테고리 스킵: category=${item.category}, value=${value}`
-        );
       }
-    });
-
-    console.log("🌤️ 날씨 데이터 분류 완료:", {
-      mapSize: weatherMap.size,
-      categories: Array.from(weatherMap.keys()),
-      entries: Object.fromEntries(weatherMap),
     });
 
     return weatherMap;
@@ -378,26 +258,21 @@ export class GetMovieWeatherUseCase {
    */
   private createParsedWeatherInfo(
     weatherMap: Map<string, string>,
-    firstItem: WeatherItem
+    firstItem: WeatherItem,
   ): ParsedWeatherInfo {
-    console.log("🌤️ 날씨 정보 생성 시작:", {
-      availableCategories: Array.from(weatherMap.keys()),
-      weatherMapEntries: Object.fromEntries(weatherMap),
-    });
-
     // 하늘 상태 파싱 (SKY) - 실황 API에서는 제공되지 않을 수 있음
     const skyCondition = this.parseSkyCondition(weatherMap.get("SKY"));
 
     // 강수 형태 파싱 (PTY)
     const precipitationType = this.parsePrecipitationType(
-      weatherMap.get("PTY")
+      weatherMap.get("PTY"),
     );
 
     // 실황 API에서는 SKY가 없으므로 강수 형태를 기반으로 날씨 설명 생성
     const weatherDescription = this.generateWeatherDescriptionFromObservation(
       skyCondition,
       precipitationType,
-      weatherMap
+      weatherMap,
     );
 
     // 온도 정보 파싱 (T1H - 기온)
@@ -416,7 +291,7 @@ export class GetMovieWeatherUseCase {
     const feelsLikeTemp = this.calculateFeelsLikeTemp(
       currentTemp,
       humidity,
-      windSpeed
+      windSpeed,
     );
 
     const parsedInfo = {
@@ -437,13 +312,6 @@ export class GetMovieWeatherUseCase {
       },
     };
 
-    console.log("🌤️ 생성된 날씨 정보:", {
-      parsedInfo,
-      hasTemp: currentTemp !== null,
-      hasHumidity: humidity !== null,
-      hasWindSpeed: windSpeed !== null,
-    });
-
     return parsedInfo;
   }
 
@@ -457,16 +325,8 @@ export class GetMovieWeatherUseCase {
   private generateWeatherDescriptionFromObservation(
     skyCondition: string,
     precipitationType: string,
-    weatherMap: Map<string, string>
+    weatherMap: Map<string, string>,
   ): string {
-    console.log("🌤️ 실황 기반 날씨 설명 생성:", {
-      skyCondition,
-      precipitationType,
-      hasRain: weatherMap.get("RN1") !== "0",
-      windSpeed: weatherMap.get("WSD"),
-      humidity: weatherMap.get("REH"),
-    });
-
     // 강수량 체크 (RN1 - 1시간 강수량)
     const rainAmount = weatherMap.get("RN1");
     const precipitationValue =
@@ -557,7 +417,7 @@ export class GetMovieWeatherUseCase {
    */
   private generateWeatherDescription(
     skyCondition: string,
-    precipitationType: string
+    precipitationType: string,
   ): string {
     if (precipitationType !== "없음") {
       return precipitationType;
@@ -612,7 +472,7 @@ export class GetMovieWeatherUseCase {
   private calculateFeelsLikeTemp(
     temp: number | null,
     humidity: number | null,
-    windSpeed: number | null
+    windSpeed: number | null,
   ): number | null {
     if (temp === null) return null;
 

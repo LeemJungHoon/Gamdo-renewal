@@ -5,7 +5,7 @@ import { TmdbApi } from "@/utils/tmdb/TmdbApi";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: personId } = await params;
@@ -13,7 +13,7 @@ export async function GET(
     if (!personId) {
       return NextResponse.json(
         { error: "배우 ID가 필요합니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -21,13 +21,12 @@ export async function GET(
 
     return NextResponse.json(creditsData);
   } catch (error: unknown) {
-    console.error("배우 출연작 조회 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

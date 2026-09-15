@@ -43,7 +43,7 @@ export default function RecommendedMovieList() {
 
       // poster_path가 있는 영화만 필터링
       const moviesWithPosters = data.results.filter(
-        (movie) => movie.poster_path
+        (movie) => movie.poster_path,
       );
 
       // 전체 데이터에서 랜덤으로 8개 선택
@@ -51,9 +51,8 @@ export default function RecommendedMovieList() {
       const limitedMovies = shuffledMovies.slice(0, 8);
       setTrendingMovies(limitedMovies);
     } catch (err) {
-      console.error("트렌딩 영화 조회 에러:", err);
       setError(
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.",
       );
       setTrendingMovies([]);
     } finally {
@@ -75,20 +74,17 @@ export default function RecommendedMovieList() {
         // 검색 결과에서 영화만 필터링
         const movie = data.results?.find(
           (item: { media_type: string; id: number }) =>
-            item.media_type === "movie"
+            item.media_type === "movie",
         );
 
         if (movie && movie.id) {
-          console.log(`영화 "${movieTitle}" ID 찾음:`, movie.id);
           setSelectedMovieId(movie.id);
           setShowMovieDetailModal(true);
         } else {
-          console.warn(`영화 "${movieTitle}" 검색 결과 없음`);
           alert(`"${movieTitle}" 영화 정보를 찾을 수 없습니다.`);
         }
       })
-      .catch((error) => {
-        console.error("영화 검색 중 오류:", error);
+      .catch(() => {
         alert("영화 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
       });
   };

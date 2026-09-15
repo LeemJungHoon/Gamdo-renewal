@@ -26,8 +26,8 @@ export default function Header() {
 
       // 퍼블릭 페이지에서 로그아웃 → 현재 페이지 유지
       return;
-    } catch (error) {
-      console.error("로그아웃 실패:", error);
+    } catch {
+      // 로그아웃 실패 처리
     }
   };
 

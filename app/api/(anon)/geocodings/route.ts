@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
           error: "latitude와 longitude 파라미터가 필요합니다.",
           timestamp: new Date().toISOString(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
           error: "latitude와 longitude는 유효한 숫자여야 합니다.",
           timestamp: new Date().toISOString(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // 🏗️ UseCase 호출 (클린 아키텍처)
+    // UseCase 호출 (클린 아키텍처)
     const result = await geocodeUseCase.execute({
       latitude,
       longitude,
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         error: errorMessage,
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

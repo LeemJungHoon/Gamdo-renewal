@@ -75,10 +75,7 @@ export class GeminiRepositoryImpl implements GeminiRepository {
       };
 
       // Gemini API 호출
-      const geminiStartedAt = performance.now();
       let geminiResponse = await this.geminiApi.generateContent(geminiRequest);
-
-      this.logTokenUsage(geminiResponse, performance.now() - geminiStartedAt);
 
       if (
         geminiResponse.candidates?.[0]?.finishReason === "MAX_TOKENS" &&
@@ -86,9 +83,7 @@ export class GeminiRepositoryImpl implements GeminiRepository {
         (request.max_tokens ?? 1024) < 1024
       ) {
         geminiRequest.generationConfig!.maxOutputTokens = 1024;
-        const retryStartedAt = performance.now();
         geminiResponse = await this.geminiApi.generateContent(geminiRequest);
-        this.logTokenUsage(geminiResponse, performance.now() - retryStartedAt);
       }
 
       // 응답 유효성 검사
@@ -107,10 +102,6 @@ export class GeminiRepositoryImpl implements GeminiRepository {
 
       // finishReason 확인 - thinking 모드에서 MAX_TOKENS로 잘릴 수 있음
       if (candidate.finishReason === "MAX_TOKENS") {
-        console.error("Gemini MAX_TOKENS 제한으로 추천 생성 실패", {
-          finishReason: candidate.finishReason,
-          ...this.getTokenUsage(geminiResponse),
-        });
         return {
           success: false,
           error: "Gemini 응답이 MAX_TOKENS 제한으로 잘렸습니다.",
@@ -178,24 +169,5 @@ export class GeminiRepositoryImpl implements GeminiRepository {
       thoughtsTokenCount: response.usageMetadata?.thoughtsTokenCount ?? 0,
       totalTokenCount: response.usageMetadata?.totalTokenCount ?? 0,
     };
-  }
-
-  private logTokenUsage(
-    response: {
-      usageMetadata?: {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        thoughtsTokenCount?: number;
-        totalTokenCount?: number;
-      };
-      candidates?: { finishReason?: string }[];
-    },
-    durationMs: number,
-  ) {
-    console.info("Gemini 토큰 사용량", {
-      durationMs: Math.round(durationMs),
-      finishReason: response.candidates?.[0]?.finishReason ?? "UNKNOWN",
-      ...this.getTokenUsage(response),
-    });
   }
 }

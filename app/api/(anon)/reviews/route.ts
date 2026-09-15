@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (tokenResult.code !== "ok") {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const userId = tokenResult.userId;
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!movieId || !content) {
       return NextResponse.json(
         { error: "movieId, content are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,17 +37,16 @@ export async function POST(req: NextRequest) {
     const review = await createReviewUseCase.execute(
       userId,
       String(movieId),
-      content
+      content,
     );
     return NextResponse.json({ review });
   } catch (error: unknown) {
-    console.error("리뷰 POST 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -64,7 +63,7 @@ export async function GET(req: NextRequest) {
       if (!review) {
         return NextResponse.json(
           { error: "Review not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
       return NextResponse.json({ review });
@@ -82,16 +81,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { error: "id, movieId, or userId parameter is required" },
-      { status: 400 }
+      { status: 400 },
     );
   } catch (error: unknown) {
-    console.error("리뷰 GET 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -104,7 +102,7 @@ export async function PUT(req: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "id parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -112,20 +110,19 @@ export async function PUT(req: NextRequest) {
     if (!content) {
       return NextResponse.json(
         { error: "content is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const review = await updateReviewUseCase.execute(Number(id), content);
     return NextResponse.json({ review });
   } catch (error: unknown) {
-    console.error("리뷰 PUT 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -138,20 +135,19 @@ export async function DELETE(req: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "id parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     await deleteReviewUseCase.execute(Number(id));
     return NextResponse.json({ message: "Review deleted successfully" });
   } catch (error: unknown) {
-    console.error("리뷰 DELETE 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

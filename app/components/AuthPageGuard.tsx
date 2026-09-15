@@ -27,11 +27,10 @@ export default function AuthPageGuard({ children }: AuthGuardProps) {
             const storedUser = parsed?.state?.user;
 
             if (storedUser) {
-              console.log("🔄 localStorage에서 사용자 정보 복원:", storedUser);
               login(storedUser);
             }
-          } catch (err) {
-            console.error("유저 정보 복원 중 오류 발생:", err);
+          } catch {
+            // 유저 정보 복원 중 오류 발생
           }
         }
 

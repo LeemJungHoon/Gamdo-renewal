@@ -36,7 +36,6 @@ export default function SigninPage() {
 
       // 로그인 성공 시 유저 정보를 전역상태에 저장
       if (response.data.result?.user) {
-        console.log(response.data.result.user);
         login(response.data.result.user);
         // 메인 페이지로 리다이렉트
         router.replace("/");

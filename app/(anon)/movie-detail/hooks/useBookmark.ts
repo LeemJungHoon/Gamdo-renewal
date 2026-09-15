@@ -35,14 +35,13 @@ export const useBookmark = ({ movieId }: UseBookmarkProps) => {
     setIsLoading(true);
     try {
       const response = await axios.get<BookmarkResponse>(
-        `/saved-watch?movieId=${movieId}`
+        `/saved-watch?movieId=${movieId}`,
       );
 
       if (response.data.success) {
         setIsBookmarked(response.data.isSaved);
       }
-    } catch (error) {
-      console.error("찜하기 상태 확인 중 오류:", error);
+    } catch {
       // 에러 발생 시 기본값 유지
     } finally {
       setIsLoading(false);
@@ -67,8 +66,8 @@ export const useBookmark = ({ movieId }: UseBookmarkProps) => {
         });
         setIsBookmarked(true);
       }
-    } catch (error) {
-      console.error("찜하기 토글 중 오류:", error);
+    } catch {
+      // 에러 처리
     }
   };
 

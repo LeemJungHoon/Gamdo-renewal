@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ results });
-  } catch (error) {
-    console.error("TMDB 일괄 검색 에러:", error);
+  } catch {
     return NextResponse.json(
       { error: "영화 정보를 일괄 조회할 수 없습니다." },
       { status: 500 },

@@ -33,11 +33,10 @@ export const useCalendarMovies = ({
         setMovies(response.data.movies || []);
       } else {
         setError(
-          response.data.message || "캘린더 데이터를 불러오는데 실패했습니다."
+          response.data.message || "캘린더 데이터를 불러오는데 실패했습니다.",
         );
       }
-    } catch (error) {
-      console.error("캘린더 영화 조회 오류:", error);
+    } catch {
       setError("캘린더 데이터를 불러오는데 실패했습니다.");
     } finally {
       setIsLoading(false);
