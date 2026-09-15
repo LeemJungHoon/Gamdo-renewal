@@ -49,9 +49,6 @@ const MoviePreviewInfo = ({
       }
     : null;
 
-  console.log("MoviePreviewInfo info:", info);
-  console.log("moviedetaildto", detail);
-
   return (
     <>
       {/* 상단 이미지와 닫기 버튼 등 */}

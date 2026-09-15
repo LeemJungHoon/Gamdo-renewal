@@ -26,8 +26,8 @@ export default function Header() {
 
       // 퍼블릭 페이지에서 로그아웃 → 현재 페이지 유지
       return;
-    } catch (error) {
-      console.error("로그아웃 실패:", error);
+    } catch {
+      // 로그아웃 실패 처리
     }
   };
 
@@ -41,7 +41,7 @@ export default function Header() {
               alt="로고"
               width={150}
               height={40}
-              className="mr-10"
+              className="mr-10 w-auto h-auto"
             />
           </Link>
           <nav className="flex-1 flex justify-center gap-8 text-md text-gray-200 font-light">

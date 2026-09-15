@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (authResult.code !== "ok") {
       return NextResponse.json(
         { error: authResult.code },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!movieId) {
       return NextResponse.json(
         { error: "Movie ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -34,11 +34,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(result);
-  } catch (error) {
-    console.error("Error fetching saves list:", error);
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

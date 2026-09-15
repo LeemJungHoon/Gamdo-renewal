@@ -9,8 +9,6 @@ export default function SignupSuccess({ isSuccess }: { isSuccess: boolean }) {
       const jsConfetti = new JSConfetti();
       jsConfetti.addConfetti({
         confettiNumber: 40,
-        emojis: ["☀️", "🍿", "🎥", "🍿", "🎬", "🎞️", "⛅️", "🌧️", "🌤️", "🩵"],
-        emojiSize: 60,
       });
 
       return () => jsConfetti.clearCanvas();

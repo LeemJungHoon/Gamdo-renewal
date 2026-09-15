@@ -15,14 +15,6 @@ export class WeatherRepositoryImpl implements WeatherRepository {
     const serviceKey = process.env.WEATHER_SERVICE_KEY;
     const baseUrl = process.env.WEATHER_BASE_URL;
 
-    // 디버깅을 위한 환경 변수 상태 로그
-    console.log("🌤️ 환경 변수 확인:", {
-      serviceKeyExists: !!serviceKey,
-      baseUrlExists: !!baseUrl,
-      serviceKeyLength: serviceKey?.length || 0,
-      baseUrl: baseUrl || "없음",
-    });
-
     if (!serviceKey) {
       throw new Error("WEATHER_SERVICE_KEY 환경 변수가 설정되지 않았습니다");
     }
@@ -46,26 +38,11 @@ export class WeatherRepositoryImpl implements WeatherRepository {
       // API 호출 URL 생성
       const url = this.buildApiUrl(request);
 
-      // 디버깅을 위한 요청 정보 로그
-      console.log("🌤️ 날씨 API 호출 시작:", {
-        request,
-        url: url.substring(0, 100) + "...", // URL 일부만 표시
-        timestamp: new Date().toISOString(),
-      });
-
       // 기상청 API 호출
       const response = await fetch(url);
 
-      console.log("🌤️ 날씨 API 응답 상태:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-
       if (!response.ok) {
         const errorMessage = `API 호출 실패: ${response.status} ${response.statusText}`;
-        console.error("❌ 날씨 API 호출 실패:", errorMessage);
         return {
           success: false,
           error: errorMessage,
@@ -75,25 +52,13 @@ export class WeatherRepositoryImpl implements WeatherRepository {
       // 응답 내용을 먼저 텍스트로 읽어서 확인
       const responseText = await response.text();
 
-      console.log("🌤️ 날씨 API 응답 내용:", {
-        length: responseText.length,
-        preview: responseText.substring(0, 200) + "...",
-        containsXML: responseText.includes("<OpenAPI_ServiceResponse>"),
-        containsJSON: responseText.includes("{"),
-      });
-
       // XML 에러 응답 체크
       if (responseText.includes("<OpenAPI_ServiceResponse>")) {
         // XML에서 에러 메시지 추출
         const errorMatch = responseText.match(
-          /<returnAuthMsg>(.*?)<\/returnAuthMsg>/
+          /<returnAuthMsg>(.*?)<\/returnAuthMsg>/,
         );
         const errorMessage = errorMatch ? errorMatch[1] : "알 수 없는 API 오류";
-
-        console.error("❌ 기상청 API XML 오류:", {
-          errorMessage,
-          fullResponse: responseText,
-        });
 
         return {
           success: false,
@@ -104,13 +69,6 @@ export class WeatherRepositoryImpl implements WeatherRepository {
       // JSON 파싱 시도
       const data: WeatherData = JSON.parse(responseText);
 
-      console.log("✅ 날씨 데이터 파싱 성공:", {
-        hasResponse: !!data.response,
-        hasBody: !!data.response?.body,
-        hasItems: !!data.response?.body?.items,
-        itemCount: data.response?.body?.items?.item?.length || 0,
-      });
-
       return {
         success: true,
         data: data,
@@ -120,11 +78,6 @@ export class WeatherRepositoryImpl implements WeatherRepository {
         error instanceof Error
           ? error.message
           : "알 수 없는 오류가 발생했습니다";
-
-      console.error("❌ 날씨 API 처리 오류:", {
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-      });
 
       return {
         success: false,
@@ -152,12 +105,6 @@ export class WeatherRepositoryImpl implements WeatherRepository {
     ].join("&");
 
     const fullUrl = `${this.baseUrl}?${params}`;
-
-    console.log("🌤️ 생성된 API URL:", {
-      baseUrl: this.baseUrl,
-      params: params.replace(this.serviceKey, "***SERVICE_KEY***"), // 키 마스킹
-      fullUrlLength: fullUrl.length,
-    });
 
     return fullUrl;
   }

@@ -18,7 +18,7 @@ export const useSavedMovies = (maxLength: number = 6) => {
     totalCount: 0,
   });
   const [moviesWithPosters, setMoviesWithPosters] = useState<MovieWithPoster[]>(
-    []
+    [],
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -48,7 +48,7 @@ export const useSavedMovies = (maxLength: number = 6) => {
           } else {
             // 포스터가 없는 경우 기본 정보만 추가
             const originalMovie = savedMovies.items.find(
-              (item) => item.movieId === movieId
+              (item) => item.movieId === movieId,
             );
             if (originalMovie) {
               return {
@@ -58,11 +58,10 @@ export const useSavedMovies = (maxLength: number = 6) => {
               } as MovieWithPoster;
             }
           }
-        } catch (error) {
-          console.error(`Error fetching details for movie ${movieId}:`, error);
+        } catch {
           // 에러 발생 시 기본 정보만 추가
           const originalMovie = savedMovies.items.find(
-            (item) => item.movieId === movieId
+            (item) => item.movieId === movieId,
           );
           if (originalMovie) {
             return {
@@ -80,12 +79,12 @@ export const useSavedMovies = (maxLength: number = 6) => {
 
       // null 값 필터링
       const moviesWithPosterData = results.filter(
-        (result): result is MovieWithPoster => result !== null
+        (result): result is MovieWithPoster => result !== null,
       );
 
       setMoviesWithPosters(moviesWithPosterData);
-    } catch (error) {
-      console.error("Error fetching movie details:", error);
+    } catch {
+      // 에러 처리
     } finally {
       setIsLoading(false);
     }
@@ -96,13 +95,12 @@ export const useSavedMovies = (maxLength: number = 6) => {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        `/mypage/saved-watches?maxLength=${maxLength}`
+        `/mypage/saved-watches?maxLength=${maxLength}`,
       );
-      console.log("API Response:", response.data);
       setSavedMovies(response.data);
       setIsSuccess(true);
-    } catch (error) {
-      console.error("Error fetching saved movies:", error);
+    } catch {
+      // 에러 처리
     } finally {
       setIsLoading(false);
     }

@@ -22,14 +22,14 @@ export class GetCalendarMoviesUseCase {
   async execute(
     userId: string,
     year: number,
-    month: number
+    month: number,
   ): Promise<CalendarResponseDto> {
     try {
       // 1. DB에서 해당 월의 저장된 영화 목록 조회
       const savedMovies = await this.savedMovieRepository.findByUserIdAndMonth(
         userId,
         year,
-        month
+        month,
       );
 
       if (savedMovies.length === 0) {
@@ -44,7 +44,7 @@ export class GetCalendarMoviesUseCase {
       const movieDetailsPromises = savedMovies.map(async (savedMovie) => {
         try {
           const movieDetail = (await TmdbApi.getMovieDetails(
-            savedMovie.movieId
+            savedMovie.movieId,
           )) as TmdbMovieDetailDto;
           return {
             movieId: savedMovie.movieId,
@@ -55,10 +55,6 @@ export class GetCalendarMoviesUseCase {
             savedAt: savedMovie.savedAt,
           } as CalendarMovieDto;
         } catch (error) {
-          console.error(
-            `TMDB API 호출 실패 (movieId: ${savedMovie.movieId}):`,
-            error
-          );
           // TMDB API 호출 실패 시 기본 정보 반환
           return {
             movieId: savedMovie.movieId,
@@ -74,7 +70,7 @@ export class GetCalendarMoviesUseCase {
 
       // 4. 날짜별로 정렬
       const sortedMovies = movieDetails.sort((a, b) =>
-        a.savedAt.localeCompare(b.savedAt)
+        a.savedAt.localeCompare(b.savedAt),
       );
 
       return {
@@ -85,8 +81,6 @@ export class GetCalendarMoviesUseCase {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "알 수 없는 오류";
-      console.error("캘린더 영화 조회 중 오류:", error);
-
       return {
         success: false,
         message: `캘린더 영화 조회 중 오류가 발생했습니다: ${errorMessage}`,

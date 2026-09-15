@@ -302,8 +302,6 @@ const RecommenderPage = () => {
   const visiblePosters = getVisiblePosters();
 
   const getPosterInfos = async (titles: string[]) => {
-    const tmdbStartedAt = performance.now();
-    console.log(`[추천 단계] TMDB 일괄 검색 시작 (${titles.length}개)`);
     try {
       const response = await fetch("/api/movies/search/batch", {
         method: "POST",
@@ -312,9 +310,6 @@ const RecommenderPage = () => {
       });
       if (!response.ok) return [];
       const data = await response.json();
-      console.log(
-        `[추천 단계] TMDB 일괄 검색 완료 (${((performance.now() - tmdbStartedAt) / 1000).toFixed(2)}초, ${data.results?.length ?? 0}개)`,
-      );
       return (data.results ?? []) as {
         posterUrl: string;
         title: string;
@@ -328,7 +323,6 @@ const RecommenderPage = () => {
   // AI 추천 요청 함수
   const handleRecommendation = async () => {
     let activeLoadingToast: string | number | null = null;
-    let geminiRetryOccurred = false;
     let recommendationTimedOut = false;
 
     try {
@@ -344,19 +338,14 @@ const RecommenderPage = () => {
 
       // 하나라도 선택되지 않았으면 추천 중단
       if (Object.values(errors).some((error) => error)) {
-        toast.error("❌ 모든 카테고리를 선택해주세요.", {
+        toast.error("모든 카테고리를 선택해주세요.", {
           position: "top-center",
           autoClose: 3000,
         });
         return;
       }
 
-      const recommendationStartedAt = performance.now();
-      recommendationStartedAtRef.current = recommendationStartedAt;
       loadedPosterUrlsRef.current.clear();
-      console.log("[추천 측정] 추천 버튼 클릭", {
-        at: new Date().toISOString(),
-      });
 
       // 유효성 검사 통과 시 모달 열기 및 spin 상태 변경
       setShowModal(true);
@@ -433,8 +422,6 @@ const RecommenderPage = () => {
       };
 
       // AI API 호출
-      console.log("[추천 단계] Gemini 요청 시작 (경과: 0.00초)");
-      const geminiStartedAt = performance.now();
       const response = await fetch("/api/geminis", {
         method: "POST",
         headers: {
@@ -453,10 +440,6 @@ const RecommenderPage = () => {
           throw new Error("GEMINI_QUOTA_EXCEEDED");
         }
       }
-
-      console.log(
-        `[추천 단계] Gemini 응답 완료 (요청 소요: ${((performance.now() - geminiStartedAt) / 1000).toFixed(2)}초, 전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
-      );
 
       if (!response.ok) {
         throw new Error(`AI 추천 요청 실패: ${response.status}`);
@@ -496,12 +479,6 @@ const RecommenderPage = () => {
         setPreviousMovieTitles(recommendedTitles);
         setShowPosters(true);
         appendPostersInBackground(recommendedTitles.slice(6));
-        console.log(
-          `[추천 단계] React 상태 반영 요청 (TMDB 완료 후 ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
-        );
-        console.log(
-          `[추천 측정] Gemini 재추천 발생 여부: ${geminiRetryOccurred}`,
-        );
         updateLoadingToast("추천 영화를 화면에 표시중입니다!");
         return;
       }
@@ -521,12 +498,6 @@ const RecommenderPage = () => {
         updateLoadingToast(
           "영화 추천 오류로 새로운 영화를 재추천 하고 있어요!",
         );
-        geminiRetryOccurred = true;
-
-        console.log(
-          `[추천 단계] Gemini 재추천 요청 시작 (전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
-        );
-        const retryStartedAt = performance.now();
         const retryResponse = await fetch("/api/geminis", {
           method: "POST",
           headers: {
@@ -543,10 +514,6 @@ const RecommenderPage = () => {
         if (recommendationTimedOutRef.current) {
           throw new Error("RECOMMENDATION_TIMEOUT");
         }
-
-        console.log(
-          `[추천 단계] Gemini 재추천 응답 완료 (요청 소요: ${((performance.now() - retryStartedAt) / 1000).toFixed(2)}초, 전체 경과: ${((performance.now() - recommendationStartedAt) / 1000).toFixed(2)}초)`,
-        );
 
         if (!retryResponse.ok) {
           throw new Error(`재추천 요청 실패: ${retryResponse.status}`);
@@ -583,9 +550,6 @@ const RecommenderPage = () => {
       updateLoadingToast("추천 영화를 화면에 표시중입니다!");
       setShowPosters(true);
       appendPostersInBackground(recommendedTitles.slice(6));
-      console.log(
-        `[추천 측정] Gemini 재추천 발생 여부: ${geminiRetryOccurred}`,
-      );
     } catch (error) {
       if (recommendationTimeoutRef.current) {
         clearTimeout(recommendationTimeoutRef.current);
@@ -616,7 +580,7 @@ const RecommenderPage = () => {
           ? "오늘 사용할 수 있는 AI 영화 추천 횟수를 모두 사용했습니다. 잠시 후 다시 시도해주세요."
           : isPosterRecommendationError
             ? "오류로 인해 추천이 불가능한 상태입니다. 새로고침 해주세요"
-            : "❌ 추천 중 문제가 생겼습니다. 다시 눌러주세요!",
+            : "추천 중 문제가 생겼습니다. 다시 눌러주세요!",
         {
           position: "top-center",
           autoClose: 3000,
@@ -629,7 +593,6 @@ const RecommenderPage = () => {
   const [loadedCount, setLoadedCount] = useState(0);
   const [loadingPosters, setLoadingPosters] = useState<Set<number>>(new Set());
   const [loadedPosters, setLoadedPosters] = useState<Set<string>>(new Set());
-  const recommendationStartedAtRef = useRef<number | null>(null);
   const loadedPosterUrlsRef = useRef<Set<string>>(new Set());
   const recommendationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -642,29 +605,14 @@ const RecommenderPage = () => {
     setLoadedCount((count) => count + 1);
     setPosterLoading(index, false);
     setPosterLoaded(posterUrl);
-
-    const elapsed = recommendationStartedAtRef.current
-      ? (performance.now() - recommendationStartedAtRef.current) / 1000
-      : 0;
-    const loadedCount = loadedPosterUrlsRef.current.size;
-    console.log(
-      `[추천 측정] ${loadedCount === 1 ? "첫 번째" : loadedCount === 4 ? "네 번째" : `${loadedCount}번째`} 포스터 로딩 완료 (${elapsed.toFixed(2)}초)`,
-    );
-    if (loadedCount === 4) {
-      console.log(`[추천 측정] 전체 완료 시간: ${elapsed.toFixed(2)}초`);
-    }
   };
 
-  const handlePosterError = (index: number, posterUrl: string) => {
+  const handlePosterError = (index: number) => {
     setPosterLoading(index, false);
-    console.warn(`[추천 측정] 포스터 로딩 실패: ${posterUrl}`);
   };
 
   // posterInfos가 바뀔 때마다 loadedCount 초기화 + 추천 결과가 0개면 spin false
   useEffect(() => {
-    console.log(
-      `[추천 측정] React 상태 반영 완료 (${posterInfos.length}개, ${recommendationStartedAtRef.current ? ((performance.now() - recommendationStartedAtRef.current) / 1000).toFixed(2) : "0.00"}초)`,
-    );
     if (posterInfos.length === 0) {
       setSpin(false); // 추천 결과가 없을 때도 spin을 false로
     }
@@ -1193,9 +1141,7 @@ const RecommenderPage = () => {
                     onLoad={() =>
                       handlePosterLoad(0, visiblePosters[0].posterUrl)
                     }
-                    onError={() =>
-                      handlePosterError(0, visiblePosters[0].posterUrl)
-                    }
+                    onError={() => handlePosterError(0)}
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[0].movieId)
                     }
@@ -1221,9 +1167,7 @@ const RecommenderPage = () => {
                     onLoad={() =>
                       handlePosterLoad(1, visiblePosters[1].posterUrl)
                     }
-                    onError={() =>
-                      handlePosterError(1, visiblePosters[1].posterUrl)
-                    }
+                    onError={() => handlePosterError(1)}
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[1].movieId)
                     }
@@ -1245,9 +1189,7 @@ const RecommenderPage = () => {
                     onLoad={() =>
                       handlePosterLoad(2, visiblePosters[2].posterUrl)
                     }
-                    onError={() =>
-                      handlePosterError(2, visiblePosters[2].posterUrl)
-                    }
+                    onError={() => handlePosterError(2)}
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[2].movieId)
                     }
@@ -1271,9 +1213,7 @@ const RecommenderPage = () => {
                     onLoad={() =>
                       handlePosterLoad(3, visiblePosters[3].posterUrl)
                     }
-                    onError={() =>
-                      handlePosterError(3, visiblePosters[3].posterUrl)
-                    }
+                    onError={() => handlePosterError(3)}
                     onClick={() =>
                       handleRecommendedPosterClick(visiblePosters[3].movieId)
                     }

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (authResult.code !== "ok") {
       return NextResponse.json(
         { success: false, message: authResult.code },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -44,17 +44,16 @@ export async function POST(request: NextRequest) {
           success: false,
           message: result.message || "영화 저장에 실패했습니다.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
-  } catch (error) {
-    console.log("영화 저장 중 서버 오류:", error);
+  } catch {
     return NextResponse.json(
       {
         success: false,
         message: "서버 내부 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -66,7 +65,7 @@ export async function DELETE(request: NextRequest) {
     if (authResult.code !== "ok") {
       return NextResponse.json(
         { success: false, message: authResult.code },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -77,7 +76,7 @@ export async function DELETE(request: NextRequest) {
 
     // 3. 영화 삭제 UseCase 실행
     const deleteSavedMovieUsecase = new DeleteSavedMovieUsecase(
-      savedMovieRepository
+      savedMovieRepository,
     );
     const result = await deleteSavedMovieUsecase.execute(userId, {
       movieId,
@@ -94,17 +93,16 @@ export async function DELETE(request: NextRequest) {
           success: false,
           message: result.message || "영화 삭제에 실패했습니다.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
-  } catch (error) {
-    console.log("영화 삭제 중 서버 오류:", error);
+  } catch {
     return NextResponse.json(
       {
         success: false,
         message: "서버 내부 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -116,7 +114,7 @@ export async function GET(request: NextRequest) {
     if (authResult.code !== "ok") {
       return NextResponse.json(
         { success: false, message: authResult.code },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -135,25 +133,24 @@ export async function GET(request: NextRequest) {
           message:
             "올바른 년도와 월을 입력해주세요. (year: 4자리 숫자, month: 1-12)",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // 4. 캘린더 데이터 조회
     const getCalendarMoviesUseCase = new GetCalendarMoviesUseCase(
-      savedMovieRepository
+      savedMovieRepository,
     );
     const result = await getCalendarMoviesUseCase.execute(userId, year, month);
 
     return NextResponse.json(result);
-  } catch (error) {
-    console.error("캘린더 영화 조회 중 서버 오류:", error);
+  } catch {
     return NextResponse.json(
       {
         success: false,
         message: "서버 내부 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -11,7 +11,7 @@ import { TmdbApi } from "@/utils/tmdb/TmdbApi";
 export class SearchRepositoryImpl implements SearchRepository {
   async searchMulti(
     query: string,
-    page: number
+    page: number,
   ): Promise<SearchMultiResponseDto> {
     try {
       const response = (await TmdbApi.searchMulti(query, page)) as unknown;
@@ -57,7 +57,7 @@ export class SearchRepositoryImpl implements SearchRepository {
                   profile_path: (item as { profile_path?: string })
                     .profile_path,
                   known_for: Array.isArray(
-                    (item as { known_for?: unknown }).known_for
+                    (item as { known_for?: unknown }).known_for,
                   )
                     ? ((
                         (item as { known_for?: unknown }).known_for as unknown[]
@@ -91,7 +91,6 @@ export class SearchRepositoryImpl implements SearchRepository {
       }
       throw new Error("검색 결과가 올바르지 않습니다.");
     } catch (error) {
-      console.error("TMDB API 검색 에러:", error);
       throw new Error("검색 중 오류가 발생했습니다.");
     }
   }

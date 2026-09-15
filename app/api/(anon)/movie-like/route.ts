@@ -2,8 +2,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/utils/supabase/client";
 
-// 예시: Redux 초기값, 테스트용 리스트 등에서 사용
-
 const TMDB_API_KEY = process.env.TMDB_API_KEY; // 환경변수에 TMDB API KEY 저장 필요
 
 export async function GET(req: Request) {
@@ -29,15 +27,15 @@ export async function GET(req: Request) {
     (data || []).map(
       async (item: { movie_id: string; is_recommended: boolean }) => {
         const res = await fetch(
-          `https://api.themoviedb.org/3/movie/${item.movie_id}?api_key=${TMDB_API_KEY}&language=ko-KR`
+          `https://api.themoviedb.org/3/movie/${item.movie_id}?api_key=${TMDB_API_KEY}&language=ko-KR`,
         );
         const movie = await res.json();
         return {
           ...movie,
           is_recommended: item.is_recommended,
         };
-      }
-    )
+      },
+    ),
   );
 
   // 4. 결과 반환

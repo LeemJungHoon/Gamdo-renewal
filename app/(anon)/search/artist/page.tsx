@@ -46,20 +46,17 @@ function ArtistPageContent() {
         // 검색 결과에서 영화만 필터링
         const movie = data.results?.find(
           (item: { media_type: string; id: number }) =>
-            item.media_type === "movie"
+            item.media_type === "movie",
         );
 
         if (movie && movie.id) {
-          console.log(`영화 "${movieTitle}" ID 찾음:`, movie.id);
           setSelectedMovieId(movie.id);
           setShowMovieDetailModal(true);
         } else {
-          console.warn(`영화 "${movieTitle}" 검색 결과 없음`);
           alert(`"${movieTitle}" 영화 정보를 찾을 수 없습니다.`);
         }
       })
-      .catch((error) => {
-        console.error("영화 검색 중 오류:", error);
+      .catch(() => {
         alert("영화 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
       });
   };
@@ -77,7 +74,7 @@ function ArtistPageContent() {
     try {
       // 1. 먼저 배우 검색으로 person ID 찾기
       const searchResponse = await fetch(
-        `/api/movies/search?query=${encodeURIComponent(personName)}`
+        `/api/movies/search?query=${encodeURIComponent(personName)}`,
       );
 
       if (!searchResponse.ok) {
@@ -87,7 +84,7 @@ function ArtistPageContent() {
       const searchData = await searchResponse.json();
       const person = searchData.results?.find(
         (item: { media_type: string; id: number }) =>
-          item.media_type === "person"
+          item.media_type === "person",
       );
 
       if (!person || !person.id) {
@@ -99,7 +96,7 @@ function ArtistPageContent() {
 
       // 2. 배우 ID로 출연작 가져오기 (백엔드 API 사용)
       const creditsResponse = await fetch(
-        `/api/search/person/${person.id}/credits`
+        `/api/search/person/${person.id}/credits`,
       );
 
       if (!creditsResponse.ok) {
@@ -121,9 +118,8 @@ function ArtistPageContent() {
 
       setCastCredits(filteredCast);
     } catch (err) {
-      console.error("배우 출연작 조회 에러:", err);
       setError(
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.",
       );
       setCastCredits([]);
     } finally {

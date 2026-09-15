@@ -41,7 +41,6 @@ const MovieHeader = ({ ottProviders = [], movieId }: MovieHeaderProps) => {
 
     if (isSameDate) {
       // 선택 해제 처리
-      console.log("🗑️ 영화 저장을 취소합니다:", date);
       showInfo("영화 저장이 취소되었습니다.");
       return;
     }
@@ -55,15 +54,13 @@ const MovieHeader = ({ ottProviders = [], movieId }: MovieHeaderProps) => {
       });
 
       if (response.data.success) {
-        showSuccess("영화가 캘린더에 저장되었습니다! 📅");
+        showSuccess("영화가 캘린더에 저장되었습니다!");
       } else {
         // 에러 발생 시 이전 상태로 되돌리기
         setSavedDate(currentSavedDate);
         showError(response.data.message || "저장에 실패했습니다.");
       }
     } catch (error: unknown) {
-      console.error("영화 저장 중 오류:", error);
-
       // 에러 발생 시 이전 상태로 되돌리기
       setSavedDate(currentSavedDate);
 

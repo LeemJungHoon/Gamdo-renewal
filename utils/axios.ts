@@ -14,12 +14,12 @@ const instance = axios.create({
 function isAuthRequired(url: string, method: string = "GET") {
   // 모든 HTTP 메서드에서 인증이 필요한 경로
   const isAuthRequiredForAll = AUTH_REQUIRED_API_PATHS.all.some((path) =>
-    url.startsWith(path.replace("/api", ""))
+    url.startsWith(path.replace("/api", "")),
   );
 
   // POST, PUT, DELETE에서만 인증이 필요한 경로 (GET은 인증 불필요)
   const isAuthRequiredForWrite = AUTH_REQUIRED_API_PATHS.write.some((path) =>
-    url.startsWith(path.replace("/api", ""))
+    url.startsWith(path.replace("/api", "")),
   );
 
   const isGetRequest = method.toUpperCase() === "GET";
@@ -32,8 +32,8 @@ async function handleAuthFailure() {
   if (typeof window !== "undefined") {
     try {
       await instance.post("/auth/logout");
-    } catch (error) {
-      console.warn("로그아웃 API 호출 실패:", error);
+    } catch {
+      // 로그아웃 API 호출 실패
     }
 
     localStorage.removeItem("user-storage");
@@ -41,8 +41,8 @@ async function handleAuthFailure() {
     try {
       const { useUserStore } = await import("@/app/stores/userStore");
       useUserStore.getState().logout();
-    } catch (error) {
-      console.warn("Zustand 상태 초기화 실패:", error);
+    } catch {
+      // Zustand 상태 초기화 실패
     }
   }
 }
@@ -64,8 +64,6 @@ instance.interceptors.response.use(
 
         return instance(originalRequest);
       } catch (refreshError) {
-        console.log("❌ 리프레시 토큰 실패:", refreshError);
-
         await handleAuthFailure();
         return Promise.reject(refreshError);
       }
@@ -78,14 +76,12 @@ instance.interceptors.response.use(
       (isAuthRequired(originalRequest.url, originalRequest.method) ||
         originalRequest.url?.includes("/auth/refresh-token"))
     ) {
-      console.log("🚫 토큰 갱신 불가능 - 바로 로그아웃 처리");
       alert("로그인 후 이용해주세요.");
       await handleAuthFailure();
     }
 
-    console.log("⚠️ 인터셉터 조건 불만족 - 에러 그대로 반환");
     return Promise.reject(error);
-  }
+  },
 );
 
 export default instance;

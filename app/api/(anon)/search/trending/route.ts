@@ -12,13 +12,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(trendingData);
   } catch (error: unknown) {
-    console.error("트렌딩 영화 조회 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

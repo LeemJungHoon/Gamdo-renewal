@@ -16,24 +16,23 @@ export async function GET(request: NextRequest) {
     if (!query) {
       return NextResponse.json(
         { error: "검색어가 필요합니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const searchResults = await searchMultiUseCase.execute(
       query,
-      parseInt(page)
+      parseInt(page),
     );
 
     return NextResponse.json(searchResults);
   } catch (error: unknown) {
-    console.error("통합검색 에러:", error);
     const message =
       error instanceof Error
         ? error.message
         : typeof error === "object"
-        ? JSON.stringify(error)
-        : String(error);
+          ? JSON.stringify(error)
+          : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
