@@ -1,7 +1,7 @@
 # Gamdo
 
 감정의 온도: 감도
-<img width="880" height="1500" alt="메인홈 - 추천페이지" src="https://github.com/user-attachments/assets/3d46a100-3699-4240-a99f-70240211a242" />
+<img width="419" height="536" alt="image" src="https://github.com/user-attachments/assets/526303af-4d39-49a2-9c21-6b8930e2f3e2" />
 
 # 시스템 설계
 
