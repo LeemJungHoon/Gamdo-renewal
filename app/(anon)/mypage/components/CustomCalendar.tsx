@@ -69,7 +69,7 @@ const CustomCalendar = () => {
               />
             </div>
           )}
-        </div>
+        </div>,
       );
     }
 
@@ -79,19 +79,19 @@ const CustomCalendar = () => {
   // 월 이동
   const handlePrevMonth = () => {
     setCurrentDate(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
     );
   };
 
   const handleNextMonth = () => {
     setCurrentDate(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
     );
   };
 
   return (
     <>
-      <div className="text-xl font-medium mb-4">캘린더</div>
+      <div className="text-xl font-medium mb-4">영화가 머문 날</div>
 
       {/* 로딩 상태 */}
       {/* {isLoading && (

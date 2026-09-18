@@ -34,8 +34,8 @@ const MovieReviewList = (props: MovieReviewListProps) => {
     props.movieId !== undefined
       ? String(props.movieId)
       : params?.id !== undefined
-      ? String(params.id)
-      : undefined;
+        ? String(params.id)
+        : undefined;
 
   const [open, setOpen] = useState(false);
   const [newContent, setNewContent] = useState("");
@@ -56,7 +56,7 @@ const MovieReviewList = (props: MovieReviewListProps) => {
       setError(
         err instanceof Error
           ? err.message
-          : "리뷰를 불러오는 중 오류가 발생했습니다."
+          : "리뷰를 불러오는 중 오류가 발생했습니다.",
       );
     } finally {
       setLoading(false);
@@ -85,8 +85,19 @@ const MovieReviewList = (props: MovieReviewListProps) => {
       setNewContent("");
       await fetchReviews();
     } catch (err) {
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err &&
+        (err as { response?: { status?: number } }).response?.status === 403
+      ) {
+        return;
+      }
+
       alert(
-        err instanceof Error ? err.message : "리뷰 등록 중 오류가 발생했습니다."
+        err instanceof Error
+          ? err.message
+          : "리뷰 등록 중 오류가 발생했습니다.",
       );
     } finally {
       setSubmitting(false);

@@ -47,10 +47,32 @@ async function handleAuthFailure() {
   }
 }
 
+let hasShownLoginRequiredPrompt = false;
+
+function showLoginRequiredPrompt() {
+  if (typeof window === "undefined" || hasShownLoginRequiredPrompt) {
+    return false;
+  }
+
+  hasShownLoginRequiredPrompt = true;
+
+  const shouldRedirect = window.confirm("로그인 후 이용해주세요.");
+
+  if (shouldRedirect) {
+    window.location.href = "/auth/signin";
+  }
+
+  return shouldRedirect;
+}
+
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
     // 인증이 필요한 경로에만 인터셉터 동작
     if (
       error.response &&
@@ -68,16 +90,26 @@ instance.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    //TODO: 401, 403 에러 처리 로직 개선 필요
-    // 403 에러 (토큰 갱신 불가능) 또는 기타 인증 관련 에러 처리
+
     if (
       error.response &&
       error.response.status === 403 &&
       (isAuthRequired(originalRequest.url, originalRequest.method) ||
         originalRequest.url?.includes("/auth/refresh-token"))
     ) {
-      alert("로그인 후 이용해주세요.");
-      await handleAuthFailure();
+      const shouldRedirect = showLoginRequiredPrompt();
+
+      if (shouldRedirect) {
+        await handleAuthFailure();
+      }
+
+      return Promise.reject(
+        Object.assign(new Error("LOGIN_REQUIRED"), {
+          response: error.response,
+          config: originalRequest,
+          __loginRequired: true,
+        }),
+      );
     }
 
     return Promise.reject(error);
