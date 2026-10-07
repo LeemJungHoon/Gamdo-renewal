@@ -2,7 +2,7 @@ import axios from "axios";
 import { AUTH_REQUIRED_API_PATHS } from "@/app/constants";
 
 const instance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "/api",
   withCredentials: true,
   timeout: 10000,
   headers: {
